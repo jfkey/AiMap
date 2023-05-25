@@ -48,7 +48,7 @@ ABC_NAMESPACE_IMPL_START
   SeeAlso     []
 
 ***********************************************************************/
-int Map_Mapping( Map_Man_t * p, char * nodeFileStr, char * cutFileStr, char* preDelayStr)
+int Map_Mapping( Map_Man_t * p, char * nodeFileStr, char * cutFileStr, char* preDelayStr, Map_Train_t *para)
 {
     int fShowSwitching         = 0;
     int fUseAreaFlow           = 1;
@@ -78,6 +78,7 @@ int Map_Mapping( Map_Man_t * p, char * nodeFileStr, char * cutFileStr, char* pre
 
     // write cut; node
 //    Map_printSuperLib((Map_SuperLib_t *)Abc_FrameReadLibSuper());
+    Map_MappingComputeFanouts(p);
     Map_MappingWriteNodeCut(p, (Map_SuperLib_t *)Abc_FrameReadLibSuper(), nodeFileStr, cutFileStr);
     Map_MappingLoadNodeCutDelay(p, (Map_SuperLib_t *)Abc_FrameReadLibSuper(), preDelayStr);
 
@@ -89,7 +90,7 @@ int Map_Mapping( Map_Man_t * p, char * nodeFileStr, char * cutFileStr, char* pre
     if ( strcmp(preDelayStr, "")){
         if (!Map_MappingMatchesPre( p )) return 0;
     } else{
-        if (!Map_MappingMatches( p ) ) return 0;
+        if (!Map_MappingMatches( p, para) ) return 0;
     }
 
 
@@ -130,7 +131,7 @@ ABC_PRT( "Time", p->timeMatch );
             // compute the required times
             Map_TimeComputeRequiredGlobal( p );
             // recover area flow
-            if (!Map_MappingMatches( p ) ) return 0;
+            if (!Map_MappingMatches( p, para ) ) return 0;
         }
         // compute the references and collect the nodes used in the mapping
         Map_MappingSetRefs( p );
@@ -163,7 +164,7 @@ ABC_PRT( "Time", Abc_Clock() - clk );
             // compute the required times
             Map_TimeComputeRequiredGlobal( p );
             // recover area flow
-            if (!Map_MappingMatches( p ) ) return 0;
+            if (!Map_MappingMatches( p, para) ) return 0;
         }
         // compute the references and collect the nodes used in the mapping
         Map_MappingSetRefs( p );
@@ -196,7 +197,7 @@ ABC_PRT( "Time", Abc_Clock() - clk );
             // compute the required times
             Map_TimeComputeRequiredGlobal( p );
             // recover area flow
-            if (!Map_MappingMatches( p ) ) return 0;
+            if (!Map_MappingMatches( p, para) ) return 0;
         }
         // compute the references and collect the nodes used in the mapping
         Map_MappingSetRefs( p );
@@ -229,7 +230,7 @@ ABC_PRT( "Time", Abc_Clock() - clk );
             // compute the required times
             Map_TimeComputeRequiredGlobal( p );
             // recover area flow
-            if (!Map_MappingMatches( p ) ) return 0;
+            if (!Map_MappingMatches( p, para) ) return 0;
         }
 
         // compute the references and collect the nodes used in the mapping
@@ -255,7 +256,7 @@ ABC_PRT( "Time", Abc_Clock() - clk );
             // compute the required times
             Map_TimeComputeRequiredGlobal( p );
             // recover area flow
-            if (!Map_MappingMatches( p ) ) return 0;
+            if (!Map_MappingMatches( p, para) ) return 0;
         }
         // compute the references and collect the nodes used in the mapping
         Map_MappingSetRefs( p );

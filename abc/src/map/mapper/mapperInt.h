@@ -386,7 +386,7 @@ extern int               Map_NodeGetFanoutNum( Map_Node_t * pNode );
 extern Map_SuperLib_t *  Map_SuperLibCreate( Mio_Library_t * pGenlib, Vec_Str_t * vStr, char * pFileName, char * pExcludeFile, int  fAlgorithm, int  fVerbose );
 extern void              Map_SuperLibFree( Map_SuperLib_t * p );
 /*=== mapperMatch.c ===============================================================*/
-extern int               Map_MappingMatches( Map_Man_t * p );
+extern int               Map_MappingMatches( Map_Man_t * p, Map_Train_t *para);
 /*=== mapperPreMatch.c ===============================================================*/
 extern int               Map_MappingMatchesPre( Map_Man_t * p );
 /*=== mapperRefs.c =============================================================*/
@@ -399,6 +399,7 @@ extern float             Map_CutRef( Map_Cut_t * pCut, int fPhase, int fProfile 
 extern float             Map_CutDeref( Map_Cut_t * pCut, int fPhase, int fProfile );
 extern void              Map_MappingSetRefs( Map_Man_t * pMan );
 extern float             Map_MappingGetArea( Map_Man_t * pMan );
+extern void              Map_MappingComputeFanouts(Map_Man_t * pMan );
 /*=== mapperSwitch.c =============================================================*/
 extern float             Map_SwitchCutGetDerefed( Map_Node_t * pNode, Map_Cut_t * pCut, int fPhase );
 extern float             Map_SwitchCutRef( Map_Node_t * pNode, Map_Cut_t * pCut, int fPhase );
@@ -421,7 +422,7 @@ extern Map_Super_t *     Map_SuperTableLookup( Map_HashTable_t * p, unsigned uTr
 extern void              Map_SuperTableSortSupergates( Map_HashTable_t * p, int nSupersMax );
 extern void              Map_SuperTableSortSupergatesByDelay( Map_HashTable_t * p, int nSupersMax );
 /*=== mapperTime.c =============================================================*/
-extern float             Map_TimeCutComputeArrival( Map_Node_t * pNode, Map_Cut_t * pCut, int fPhase, float tWorstCaseLimit );
+extern float             Map_TimeCutComputeArrival( Map_Node_t * pNode, Map_Cut_t * pCut, int fPhase, float tWorstCaseLimit, int mappingMode, Map_Train_t *para);
 extern float             Map_TimeCutComputeArrivalPre( Map_Node_t * pNode, Map_Cut_t * pCut, int fPhase, float tWorstCaseLimit );
 extern float             Map_TimeComputeArrivalMax( Map_Man_t * p );
 extern void              Map_TimeComputeRequiredGlobal( Map_Man_t * p );

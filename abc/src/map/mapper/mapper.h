@@ -48,6 +48,7 @@ typedef struct Map_HashTableStruct_t_   Map_HashTable_t;
 typedef struct Map_HashEntryStruct_t_   Map_HashEntry_t;
 typedef struct Map_TimeStruct_t_        Map_Time_t;
 
+
 // the pair of rise/fall time parameters
 struct Map_TimeStruct_t_
 {
@@ -56,6 +57,8 @@ struct Map_TimeStruct_t_
     float              Worst;
     float              EstWorst;
 };
+
+
 
 ////////////////////////////////////////////////////////////////////////
 ///                       GLOBAL VARIABLES                           ///
@@ -169,7 +172,7 @@ extern Map_Cut_t *     Map_CutAlloc( Map_Man_t * p );
 extern void            Map_CutCreateFromNode( Map_Man_t * p, Map_Super_t * pSuper, int iRoot, unsigned uPhaseRoot, 
                            int * pLeaves, int nLeaves, unsigned uPhaseLeaves );
 /*=== mapperCore.c =============================================================*/
-extern int             Map_Mapping( Map_Man_t * p, char * nodeFileStr, char * cutFileStr, char* preDelayStr );
+extern int             Map_Mapping( Map_Man_t * p, char * nodeFileStr, char * cutFileStr, char* preDelayStr, Map_Train_t *para );
 /*=== mapperLib.c =============================================================*/
 extern int             Map_SuperLibDeriveFromGenlib( Mio_Library_t * pLib, int fVerbose );
 extern void            Map_SuperLibFree( Map_SuperLib_t * p );

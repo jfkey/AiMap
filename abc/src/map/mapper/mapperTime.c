@@ -103,7 +103,7 @@ float Map_TimeComputeArrivalMaxPre( Map_Man_t * p )
   SeeAlso     []
 
 ***********************************************************************/
-float Map_TimeCutComputeArrival( Map_Node_t * pNode, Map_Cut_t * pCut, int fPhase, float tWorstLimit )
+float Map_TimeCutComputeArrival( Map_Node_t * pNode, Map_Cut_t * pCut, int fPhase, float tWorstLimit, int mappingMode, Map_Train_t *para )
 {
     Map_Match_t * pM = pCut->M + fPhase;
     Map_Super_t * pSuper = pM->pSuperBest;
@@ -116,16 +116,46 @@ float Map_TimeCutComputeArrival( Map_Node_t * pNode, Map_Cut_t * pCut, int fPhas
 
     float pinDelay = MAP_FLOAT_SMALL;
 
+
     tExtra = pNode->p->pNodeDelays ? pNode->p->pNodeDelays[pNode->Num] : 0;
     ptArrRes->Rise  = ptArrRes->Fall = 0.0;
+
+    int rootFanouts;
+    int leafFanouts = 0;
     ptArrRes->Worst = MAP_FLOAT_LARGE;
     for ( i = pCut->nLeaves - 1; i >= 0; i-- )
-    {
+        leafFanouts += pCut->ppLeaves[i]->nFanouts;
+//    float gamma = 0.8, tau = 0.5;
+//    double delayFactor = 1 + gamma * log( (double) (rootFanouts+1))/ (1 + tau * log( (double) (leafFanouts+1))) ;
+//    double delayFactor = 1 + gamma * log( (double) (rootFanouts+1))/ (1 + tau * log( (double) (leafFanouts+1))) ;
+    double delayFactor = 1.0;
+    if (para != NULL && para->beta != 0 ) {
+        if (mappingMode == 0 ){
+            rootFanouts = pNode->nFanouts;
+            if (rootFanouts <= 2 ){
+                delayFactor = 1;
+            } else  {
+                delayFactor =  para->constF + para->beta * para->gamma * log((double ) rootFanouts) + (1 - para->beta) * para->tau * log( (double) (leafFanouts+2));
+            }
+        } else {
+            rootFanouts = pNode->nRefAct[fPhase] ;
+            if (rootFanouts <= 2 ){
+                delayFactor = 1;
+            } else  {
+                delayFactor =  para->constF + para->beta * para->gamma * log((double ) rootFanouts) + (1 - para->beta) * para->tau * log( (double) (leafFanouts+2));
+            }
+        }
+    }
 
+
+//    p->pNodeDelays[k] = 0.014426 * LogFan * p->pSuperLib->tDelayInv.Worst * log( (double)pNode->nRefs ); // 1.4426 = 1/ln(2)
+//    delayFactor = 1;
+
+    for ( i = pCut->nLeaves - 1; i >= 0; i-- )
+    {
         // get the phase of the given pin
         fPinPhase = ((uPhaseTot & (1 << i)) == 0);
         ptArrIn = pCut->ppLeaves[i]->tArrival + fPinPhase;
-
         if(pSuper->tDelaysR[i].Rise > 0)  pinDelay = Abc_MaxFloat(pinDelay, pSuper->tDelaysR[i].Rise);
         if(pSuper->tDelaysR[i].Fall > 0)  pinDelay = Abc_MaxFloat(pinDelay, pSuper->tDelaysR[i].Fall);
         if(pSuper->tDelaysF[i].Rise > 0)  pinDelay = Abc_MaxFloat(pinDelay, pSuper->tDelaysF[i].Rise);
@@ -134,7 +164,7 @@ float Map_TimeCutComputeArrival( Map_Node_t * pNode, Map_Cut_t * pCut, int fPhas
         // get the rise of the output due to rise of the inputs
         if ( pSuper->tDelaysR[i].Rise > 0 )
         {
-            tDelay = ptArrIn->Rise + pSuper->tDelaysR[i].Rise + tExtra;
+            tDelay = ptArrIn->Rise +   pSuper->tDelaysR[i].Rise * delayFactor  + tExtra;
             if ( tDelay > tWorstLimit )
                 return MAP_FLOAT_LARGE;
             if ( ptArrRes->Rise < tDelay )
@@ -144,7 +174,7 @@ float Map_TimeCutComputeArrival( Map_Node_t * pNode, Map_Cut_t * pCut, int fPhas
         // get the rise of the output due to fall of the inputs
         if ( pSuper->tDelaysR[i].Fall > 0 )
         {
-            tDelay = ptArrIn->Fall + pSuper->tDelaysR[i].Fall + tExtra;
+            tDelay = ptArrIn->Fall +   pSuper->tDelaysR[i].Fall * delayFactor + tExtra;
             if ( tDelay > tWorstLimit )
                 return MAP_FLOAT_LARGE;
             if ( ptArrRes->Rise < tDelay )
@@ -154,7 +184,7 @@ float Map_TimeCutComputeArrival( Map_Node_t * pNode, Map_Cut_t * pCut, int fPhas
         // get the fall of the output due to rise of the inputs
         if ( pSuper->tDelaysF[i].Rise > 0 )
         {
-            tDelay = ptArrIn->Rise + pSuper->tDelaysF[i].Rise + tExtra;
+            tDelay = ptArrIn->Rise +   pSuper->tDelaysF[i].Rise * delayFactor + tExtra;
             if ( tDelay > tWorstLimit )
                 return MAP_FLOAT_LARGE;
             if ( ptArrRes->Fall < tDelay )
@@ -164,7 +194,7 @@ float Map_TimeCutComputeArrival( Map_Node_t * pNode, Map_Cut_t * pCut, int fPhas
         // get the fall of the output due to fall of the inputs
         if ( pSuper->tDelaysF[i].Fall > 0 )
         {
-            tDelay = ptArrIn->Fall + pSuper->tDelaysF[i].Fall + tExtra;
+            tDelay = ptArrIn->Fall + pSuper->tDelaysF[i].Fall * delayFactor   + tExtra;
             if ( tDelay > tWorstLimit )
                 return MAP_FLOAT_LARGE;
             if ( ptArrRes->Fall < tDelay )
@@ -276,7 +306,6 @@ float Map_TimeCutComputeArrivalPre( Map_Node_t * pNode, Map_Cut_t * pCut, int fP
                 ptArrRes->Rise = tDelay;
                 ptArrInWorst = ptArrIn;
             }
-
         }
 
         // get the rise of the output due to fall of the inputs

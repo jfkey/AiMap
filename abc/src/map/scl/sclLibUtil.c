@@ -17,7 +17,7 @@
   Revision    [$Id: sclLibUtil.c,v 1.0 2012/08/24 00:00:00 alanmi Exp $]
 
 ***********************************************************************/
-
+//#include "map/mapper/mapper.h"
 #include "sclLib.h"
 #include "misc/st/st.h"
 #include "map/mio/mio.h"
@@ -477,6 +477,7 @@ float Abc_SclComputeAverageSlew( SC_Lib * p )
 ***********************************************************************/
 int Abc_SclComputeParametersPin( SC_Lib * p, SC_Cell * pCell, int iPin, float Slew, float * pLD, float * pPD )
 {
+
     SC_Pair Load0, Load1, Load2;
     SC_Pair ArrIn  = { 0.0, 0.0 };
     SC_Pair SlewIn = { Slew, Slew };
@@ -513,6 +514,46 @@ int Abc_SclComputeParametersPin( SC_Lib * p, SC_Cell * pCell, int iPin, float Sl
     return 1;
 }
 
+int Abc_SclComputeParametersPinSlew( SC_Lib * p, SC_Cell * pCell, int iPin, float Slew1, float Slew2, float * pSLD, float * pSPD, int loadid )
+{
+
+    SC_Pair Load;
+    SC_Pair ArrIn  = { 0.0, 0.0 };
+    SC_Pair SlewIn0 = { 0.0, 0.0 };
+    SC_Pair SlewIn1 = { Slew1, Slew1 };
+    SC_Pair SlewIn2 = { Slew2, Slew2 };
+
+    SC_Pair ArrOut0 = { 0.0, 0.0 };
+    SC_Pair ArrOut1 = { 0.0, 0.0 };
+    SC_Pair ArrOut2 = { 0.0, 0.0 };
+    SC_Pair SlewOut = { 0.0, 0.0 };
+    SC_Timing * pTime = Scl_CellPinTime( pCell, iPin );
+    Vec_Flt_t * vIndex = pTime ? &pTime->pCellRise.vIndex1 : NULL; // capacitance
+    if ( vIndex == NULL )
+        return 0;
+    // handle constant table
+    if ( Vec_FltSize(vIndex) == 1 )
+    {
+        *pSLD = 0;
+        *pSPD = Vec_FltEntry( (Vec_Flt_t *)Vec_PtrEntry(&pTime->pCellRise.vData, 0), 0 );
+        return 1;
+    }
+    // get load points
+    Load.rise = Load.fall = Vec_FltEntry( vIndex, loadid );
+
+    // compute delay
+    Scl_LibPinArrival( pTime, &ArrIn, &SlewIn0, &Load, &ArrOut0, &SlewOut );
+    Scl_LibPinArrival( pTime, &ArrIn, &SlewIn1, &Load, &ArrOut1, &SlewOut );
+    Scl_LibPinArrival( pTime, &ArrIn, &SlewIn2, &Load, &ArrOut2, &SlewOut );
+    ArrOut0.rise = 0.5 * ArrOut0.rise + 0.5 * ArrOut0.fall;
+    ArrOut1.rise = 0.5 * ArrOut1.rise + 0.5 * ArrOut1.fall;
+    ArrOut2.rise = 0.5 * ArrOut2.rise + 0.5 * ArrOut2.fall;
+    // get tangent
+    *pSLD = (ArrOut2.rise - ArrOut1.rise) / (Slew2 - Slew1) / SC_CellPinCap(pCell, iPin);
+    // get constant
+    *pSPD = ArrOut0.rise;
+    return 1;
+}
 
 
 
@@ -563,12 +604,32 @@ void Abc_SclComputeParametersClassPin( SC_Lib * p, SC_Cell * pRepr, int iPin, fl
     *pLD = LD / Abc_MaxInt(1, Count);
     *pPD = PD / Abc_MaxInt(1, Count);
 }
-float Abc_SclComputeDelayCellPin( SC_Lib * p, SC_Cell * pCell, int iPin, float Slew, float Gain )
+// 计算该单元的引脚延迟
+float Abc_SclComputeDelayCellPin( SC_Lib * p, SC_Cell * pCell, int iPin, float Slew, float Gain)
 {
     float LD = 0, PD = 0;
     Abc_SclComputeParametersPin( p, pCell, iPin, Slew, &LD, &PD );
     return 0.01 * LD * Gain + PD;
 }
+
+
+float Abc_SclComputeDelayCellPinTrain( SC_Lib * p, SC_Cell * pCell, int iPin, float Slew, float Gain, Map_Train_t *para )
+{
+    float LD = 0, PD = 0, SLD = 0, SPD = 0;
+    float capOrientDelay = 0, slewOrientDelay = 0;
+    Abc_SclComputeParametersPin( p, pCell, iPin, para->slew, &LD, &PD );
+    capOrientDelay = 0.01 * LD * para->gain + PD;
+
+
+    Abc_SclComputeParametersPinSlew( p, pCell, iPin, 10, 200, &SLD, &SPD,  0);
+    slewOrientDelay = 0.01 * SLD * para->gain * 2 + SPD;
+    return  para->alpha * capOrientDelay  + (1-para->alpha) * slewOrientDelay;
+//    return slewOrientDelay;
+}
+
+
+
+// 计算特定supergate类别中（函数等价的supergate中），某个引脚上的的平均delay
 float Abc_SclComputeDelayClassPin( SC_Lib * p, SC_Cell * pRepr, int iPin, float Slew, float Gain )
 {
     SC_Cell * pCell;
@@ -576,11 +637,27 @@ float Abc_SclComputeDelayClassPin( SC_Lib * p, SC_Cell * pRepr, int iPin, float 
     int i, Count = 0;
     SC_RingForEachCell( pRepr, pCell, i )
     {
-        if ( pCell->fSkip ) 
+        if ( pCell->fSkip )
             continue;
 //        if ( pRepr == pCell ) // skip the first gate
 //            continue;
         Delay += Abc_SclComputeDelayCellPin( p, pCell, iPin, Slew, Gain );
+        Count++;
+    }
+    return Delay / Abc_MaxInt(1, Count);
+}
+
+
+float Abc_SclComputeDelayClassPinTrain( SC_Lib * p, SC_Cell * pRepr, int iPin, float Slew, float Gain, Map_Train_t * para )
+{
+    SC_Cell * pCell;
+    float Delay = 0;
+    int i, Count = 0;
+    SC_RingForEachCell( pRepr, pCell, i )
+    {
+        if ( pCell->fSkip )
+            continue;
+        Delay += Abc_SclComputeDelayCellPinTrain( p, pCell, iPin, Slew, Gain, para);
         Count++;
     }
     return Delay / Abc_MaxInt(1, Count);
@@ -883,7 +960,7 @@ Mio_Library_t * Abc_SclDeriveGenlibSimple( void * pScl )
   SeeAlso     []
 
 ***********************************************************************/
-Vec_Str_t * Abc_SclProduceGenlibStr( SC_Lib * p, float Slew, float Gain, int nGatesMin, int * pnCellCount )
+Vec_Str_t * Abc_SclProduceGenlibStr( SC_Lib * p, float Slew, float Gain, int nGatesMin, int * pnCellCount, Map_Train_t * trainPara  )
 {
     char Buffer[200];
     Vec_Str_t * vStr;
@@ -925,7 +1002,11 @@ Vec_Str_t * Abc_SclProduceGenlibStr( SC_Lib * p, float Slew, float Gain, int nGa
         Vec_StrPrintStr( vStr, ";\n" );
         SC_CellForEachPinIn( pRepr, pPin, k )
         {
-            float Delay = Abc_SclComputeDelayClassPin( p, pRepr, k, Slew, Gain );
+            float Delay = 0;
+            if (trainPara == NULL || trainPara->isTrain == 0)
+                Delay = Abc_SclComputeDelayClassPin( p, pRepr, k, Slew, Gain );
+            else
+                Delay = Abc_SclComputeDelayClassPinTrain( p, pRepr, k, Slew, Gain, trainPara );
             assert( Delay > 0 );
             Vec_StrPrintStr( vStr, "         PIN " );
             sprintf( Buffer, "%-4s", pPin->pName );
@@ -943,7 +1024,7 @@ Vec_Str_t * Abc_SclProduceGenlibStr( SC_Lib * p, float Slew, float Gain, int nGa
         *pnCellCount = Count;
     return vStr;
 }
-Vec_Str_t * Abc_SclProduceGenlibStrProfile( SC_Lib * p, Mio_Library_t * pLib, float Slew, float Gain, int nGatesMin, int * pnCellCount )
+Vec_Str_t * Abc_SclProduceGenlibStrProfile( SC_Lib * p, Mio_Library_t * pLib, float Slew, float Gain, int nGatesMin, int * pnCellCount, Map_Train_t * trainPara )
 {
     char Buffer[200];
     Vec_Str_t * vStr;
@@ -1013,6 +1094,7 @@ Vec_Str_t * Abc_SclProduceGenlibStrProfile( SC_Lib * p, Mio_Library_t * pLib, fl
 }
 void Abc_SclDumpGenlib( char * pFileName, SC_Lib * p, float SlewInit, float Gain, int nGatesMin )
 {
+    Map_Train_t  *pPara;
     int nCellCount = 0;
     char FileName[1000];
     float Slew = (SlewInit == 0) ? Abc_SclComputeAverageSlew(p) : SlewInit;
@@ -1028,13 +1110,14 @@ void Abc_SclDumpGenlib( char * pFileName, SC_Lib * p, float SlewInit, float Gain
         printf( "Cannot open file \"%s\" for writing.\n", FileName );
         return;
     }
-    vStr = Abc_SclProduceGenlibStr( p, Slew, Gain, nGatesMin, &nCellCount );
+    vStr = Abc_SclProduceGenlibStr( p, Slew, Gain, nGatesMin, &nCellCount, pPara );
     fprintf( pFile, "%s", Vec_StrArray(vStr) );
     Vec_StrFree( vStr );
     fclose( pFile );
     printf( "Written GENLIB library with %d gates into file \"%s\".\n", nCellCount, FileName );
 }
-Mio_Library_t * Abc_SclDeriveGenlib( void * pScl, void * pMio, float SlewInit, float Gain, int nGatesMin, int fVerbose )
+
+Mio_Library_t * Abc_SclDeriveGenlib( void * pScl, void * pMio, float SlewInit, float Gain, int nGatesMin, int fVerbose, Map_Train_t* trainPara )
 {
     int nCellCount = 0;
     SC_Lib * p = (SC_Lib *)pScl;
@@ -1042,9 +1125,9 @@ Mio_Library_t * Abc_SclDeriveGenlib( void * pScl, void * pMio, float SlewInit, f
     Vec_Str_t * vStr;
     Mio_Library_t * pLib;
     if ( pMio == NULL )
-        vStr = Abc_SclProduceGenlibStr( p, Slew, Gain, nGatesMin, &nCellCount );
+        vStr = Abc_SclProduceGenlibStr( p, Slew, Gain, nGatesMin, &nCellCount, trainPara );
     else
-        vStr = Abc_SclProduceGenlibStrProfile( p, (Mio_Library_t *)pMio, Slew, Gain, nGatesMin, &nCellCount );
+        vStr = Abc_SclProduceGenlibStrProfile( p, (Mio_Library_t *)pMio, Slew, Gain, nGatesMin, &nCellCount, trainPara );
     pLib = Mio_LibraryRead( p->pFileName, Vec_StrArray(vStr), NULL, 0 );
 
     Vec_StrFree( vStr );
@@ -1170,6 +1253,7 @@ void Abc_WriteCellFeatures(char * pFileName, SC_Lib * p ){
 ***********************************************************************/
 void Abc_SclInstallGenlib( void * pScl, float SlewInit, float Gain, int nGatesMin )
 {
+
     SC_Lib * p = (SC_Lib *)pScl;
     Vec_Str_t * vStr, * vStr2;
     float Slew = (SlewInit == 0) ? Abc_SclComputeAverageSlew(p) : SlewInit;
@@ -1177,7 +1261,7 @@ void Abc_SclInstallGenlib( void * pScl, float SlewInit, float Gain, int nGatesMi
     if ( Gain == 0 )
         vStr = Abc_SclProduceGenlibStrSimple(p);
     else
-        vStr = Abc_SclProduceGenlibStr( p, Slew, Gain, nGatesMin, &nGateCount );
+        vStr = Abc_SclProduceGenlibStr( p, Slew, Gain, nGatesMin, &nGateCount, NULL);
     vStr2 = Vec_StrDup( vStr );
     RetValue = Mio_UpdateGenlib2( vStr, vStr2, p->pName, 0 );
     Vec_StrFree( vStr );

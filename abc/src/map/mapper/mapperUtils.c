@@ -315,7 +315,12 @@ void Map_MappingPrintOutputArrivals( Map_Man_t * p )
         pTimes = pNode->tArrival + fPhase;
         // print out the best arrival time
         printf( "Output  %-*s : ", MaxNameSize + 3, p->ppOutputNames[pSorted[i]] );
-        printf( "Delay = (%5.2f, %5.2f, %5.2f)  ", (double)pTimes->Rise, (double)pTimes->Fall, (double)pTimes->EstWorst );
+        if(pTimes->EstWorst == MAP_FLOAT_LARGE) {
+            printf( "Delay = (%5.2f, %5.2f, %3s)  ", (double)pTimes->Rise, (double)pTimes->Fall, "-");
+        } else{
+            printf( "Delay = (%5.2f, %5.2f, %5.2f)  ", (double)pTimes->Rise, (double)pTimes->Fall, (double)pTimes->EstWorst );
+        }
+
         printf( "%s", fPhase? "POS" : "NEG" );
         printf( "\n" );
     }
@@ -726,9 +731,9 @@ float Map_MappingComputeDelayWithFanouts( Map_Man_t * p )
             continue;
         // count the switching nodes
         if ( pNode->nRefAct[0] > 0 )
-            Map_TimeCutComputeArrival( pNode, pNode->pCutBest[0], 0, MAP_FLOAT_LARGE );
+            Map_TimeCutComputeArrival( pNode, pNode->pCutBest[0], 0, MAP_FLOAT_LARGE, 1, NULL);
         if ( pNode->nRefAct[1] > 0 )
-            Map_TimeCutComputeArrival( pNode, pNode->pCutBest[1], 1, MAP_FLOAT_LARGE );
+            Map_TimeCutComputeArrival( pNode, pNode->pCutBest[1], 1, MAP_FLOAT_LARGE, 1, NULL );
     }
     Result = Map_TimeComputeArrivalMax(p);
     printf( "Max arrival times with fanouts = %10.2f.\n", Result );

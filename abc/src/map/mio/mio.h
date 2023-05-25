@@ -15,9 +15,10 @@
   Revision    [$Id: mio.h,v 1.6 2004/08/09 22:16:31 satrajit Exp $]
 
 ***********************************************************************/
-
+//#include "map/mapper/mapper.h"
 #ifndef ABC__map__mio__mio_h
 #define ABC__map__mio__mio_h
+
 
 
 ////////////////////////////////////////////////////////////////////////
@@ -42,6 +43,9 @@ typedef enum { MIO_PHASE_UNKNOWN, MIO_PHASE_INV, MIO_PHASE_NONINV } Mio_PinPhase
 typedef struct  Mio_LibraryStruct_t_      Mio_Library_t;
 typedef struct  Mio_GateStruct_t_         Mio_Gate_t;
 typedef struct  Mio_PinStruct_t_          Mio_Pin_t;
+typedef struct  Map_TrainParaStruct_t_    Map_Train_t;
+
+
 
 typedef struct Mio_Cell_t_ Mio_Cell_t; 
 struct Mio_Cell_t_
@@ -68,6 +72,19 @@ struct Mio_Cell2_t_
     int             iDelayAve;      // average delay
     int             iDelays[6];     // delay
     void *          pMioGate;       // gate pointer
+};
+
+struct Map_TrainParaStruct_t_
+{
+    int                isTrain;
+    float              slew;
+    float              gain;
+    float              alpha;
+    float              gamma;
+    float              tau;
+    float              beta;
+    float              constF;
+
 };
 
 ////////////////////////////////////////////////////////////////////////
@@ -229,7 +246,7 @@ extern void              Mio_LibraryMatches2Fetch( Mio_Library_t * pLib, Vec_Ptr
 
 /*=== sclUtil.c =========================================================*/
 extern Mio_Library_t *   Abc_SclDeriveGenlibSimple( void * pScl );
-extern Mio_Library_t *   Abc_SclDeriveGenlib( void * pScl, void * pMio, float Slew, float Gain, int nGatesMin, int fVerbose );
+extern Mio_Library_t *   Abc_SclDeriveGenlib( void * pScl, void * pMio, float Slew, float Gain, int nGatesMin, int fVerbose,  Map_Train_t* trainPara);
 extern int               Abc_SclHasDelayInfo( void * pScl );
 
 

@@ -61,7 +61,7 @@ static Abc_Obj_t *  Abc_NodeFromMapSuperChoice_rec( Abc_Ntk_t * pNtkNew, Map_Sup
 
 ***********************************************************************/
 Abc_Ntk_t * Abc_NtkMap( Abc_Ntk_t * pNtk, double DelayTarget, double AreaMulti, double DelayMulti, float LogFan, float Slew, float Gain, int nGatesMin, int fRecovery, int fSwitching, int fSkipFanout,
-                        int fUseProfile, int fUseBuffs, int fVerbose, char* nodeFileStr, char* cutFileStr, char* cellFileStr, char* preDelayStr )
+                        int fUseProfile, int fUseBuffs, int fVerbose, char* nodeFileStr, char* cutFileStr, char* cellFileStr, char* preDelayStr, Map_Train_t* trainPara)
 {
     static int fUseMulti = 0;
     int fShowSwitching = 1;
@@ -79,10 +79,11 @@ Abc_Ntk_t * Abc_NtkMap( Abc_Ntk_t * pNtk, double DelayTarget, double AreaMulti, 
     if ( Abc_FrameReadLibScl() && Abc_SclHasDelayInfo( Abc_FrameReadLibScl() ) )
     {
         if ( pLib && Mio_LibraryHasProfile(pLib) )
-            pLib = Abc_SclDeriveGenlib( Abc_FrameReadLibScl(), pLib, Slew, Gain, nGatesMin, fVerbose );
+            pLib = Abc_SclDeriveGenlib( Abc_FrameReadLibScl(), pLib, Slew, Gain, nGatesMin, fVerbose, trainPara );
         else
             // 预估cell中，每个pin上的delay
-            pLib = Abc_SclDeriveGenlib( Abc_FrameReadLibScl(), NULL, Slew, Gain, nGatesMin, fVerbose );
+            // achieve better QoR
+            pLib = Abc_SclDeriveGenlib( Abc_FrameReadLibScl(), NULL, Slew, Gain, nGatesMin, fVerbose, trainPara );
             Abc_WriteCellFeatures( cellFileStr, (SC_Lib *)Abc_FrameReadLibScl());
      if ( Abc_FrameReadLibGen() )
         {
@@ -117,7 +118,7 @@ Abc_Ntk_t * Abc_NtkMap( Abc_Ntk_t * pNtk, double DelayTarget, double AreaMulti, 
         Mio_LibraryMultiDelay( pLib, DelayMulti );
 
     // derive the supergate library
-    // 生成的真是的supergate的个数：1951； ((Map_SuperLib_t * )Abc_FrameReadLibSuper() )->nSupersReal
+    // 生成的supergate个数：1951； ((Map_SuperLib_t * )Abc_FrameReadLibSuper() )->nSupersReal
     if ( fUseMulti || Abc_FrameReadLibSuper() == NULL )
     {
         if ( fVerbose )
@@ -165,7 +166,7 @@ clk = Abc_Clock();
         Map_ManCreateNodeDelays( pMan, LogFan );
 
 
-    if ( !Map_Mapping( pMan, nodeFileStr, cutFileStr, preDelayStr) )
+    if ( !Map_Mapping( pMan, nodeFileStr, cutFileStr, preDelayStr, trainPara) )
     {
         Map_ManFree( pMan );
         return NULL;
@@ -633,7 +634,7 @@ Abc_Ntk_t * Abc_NtkSuperChoice( Abc_Ntk_t * pNtk )
     if ( pMan == NULL )
         return NULL;
     char * nodeFileStr = ""; char* cutFileStr = ""; char* preDelayStr = "";
-    if ( !Map_Mapping( pMan, nodeFileStr, cutFileStr, preDelayStr) )
+    if ( !Map_Mapping( pMan, nodeFileStr, cutFileStr, preDelayStr, NULL) )
     {
         Map_ManFree( pMan );
         return NULL;

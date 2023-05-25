@@ -531,6 +531,40 @@ float Map_MappingGetArea( Map_Man_t * pMan )
 }
 
 
+void Map_MappingComputeFanouts(Map_Man_t * pMan ){
+    Map_Node_t * pNode, *f1, *f2;
+    int i = 0;
+    for ( i = 0; i < pMan->vMapObjs->nSize; i++ )
+    {
+        pNode = pMan->vMapObjs->pArray[i];
+        pNode ->nFanouts = 0;
+    }
+
+    for ( i = 0; i < pMan->vMapObjs->nSize; i++ )
+    {
+        // for each node
+        pNode = pMan->vMapObjs->pArray[i];
+        if ( Map_NodeIsBuf(pNode) )
+        {
+            assert( pNode->p2 == NULL );
+            pNode->tArrival[0] = Map_Regular(pNode->p1)->tArrival[ Map_IsComplement(pNode->p1)];
+            pNode->tArrival[1] = Map_Regular(pNode->p1)->tArrival[!Map_IsComplement(pNode->p1)];
+            continue;
+        }
+        // skip primary inputs and secondary nodes if mapping with choices
+//        if ( !Map_NodeIsAnd( pNode ) || pNode->pRepr )
+//            continue;
+        if (pNode->p1 != NULL) {
+            f1 = Map_Regular(pNode->p1);
+            f1->nFanouts += 1;
+        }
+        if (pNode->p2 != NULL) {
+            f2 = Map_Regular(pNode->p2);
+            f2->nFanouts += 1;
+        }
+    }
+}
+
 ////////////////////////////////////////////////////////////////////////
 ///                       END OF FILE                                ///
 ////////////////////////////////////////////////////////////////////////
