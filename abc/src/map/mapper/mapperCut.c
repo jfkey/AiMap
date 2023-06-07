@@ -7,7 +7,7 @@
   Synopsis    [Generic technology mapping engine.]
 
   Author      [MVSIS Group]
-  
+
   Affiliation [UC Berkeley]
 
   Date        [Ver. 2.0. Started - June 1, 2004.]
@@ -30,14 +30,17 @@ ABC_NAMESPACE_IMPL_START
 // the largest number of cuts used
 #define  MAP_CUTS_MAX_USE       250
 
+
+
+
 // temporary hash table to store the cuts
 typedef struct Map_CutTableStrutct_t Map_CutTable_t;
 struct Map_CutTableStrutct_t
 {
     Map_Cut_t ** pBins;        // the table used for linear probing
     int          nBins;        // the size of the table
-    int *        pCuts;        // the array of cuts currently stored 
-    int          nCuts;        // the number of cuts currently stored 
+    int *        pCuts;        // the array of cuts currently stored
+    int          nCuts;        // the number of cuts currently stored
     Map_Cut_t ** pArray;       // the temporary array of cuts
     Map_Cut_t ** pCuts1;       // the temporary array of cuts
     Map_Cut_t ** pCuts2;       // the temporary array of cuts
@@ -46,9 +49,9 @@ struct Map_CutTableStrutct_t
 // primes used to compute the hash key
 static int s_HashPrimes[10] = { 109, 499, 557, 619, 631, 709, 797, 881, 907, 991 };
 
-static Map_Cut_t *      Map_CutCompute( Map_Man_t * p, Map_CutTable_t * pTable, Map_Node_t * pNode );
+static Map_Cut_t *      Map_CutCompute( Map_Man_t * p, Map_CutTable_t * pTable, Map_Node_t * pNode, Map_Train_t * pPara );
 static void             Map_CutFilter( Map_Man_t * p, Map_Node_t * pNode );
-static Map_Cut_t *      Map_CutMergeLists( Map_Man_t * p, Map_CutTable_t * pTable, Map_Cut_t * pList1, Map_Cut_t * pList2, int fComp1, int fComp2 );
+static Map_Cut_t *      Map_CutMergeLists( Map_Man_t * p, Map_CutTable_t * pTable, Map_Cut_t * pList1, Map_Cut_t * pList2, int fComp1, int fComp2, Map_Train_t * pPara);
 static int              Map_CutMergeTwo( Map_Cut_t * pCut1, Map_Cut_t * pCut2, Map_Node_t * ppNodes[], int nNodesMax );
 static Map_Cut_t *      Map_CutUnionLists( Map_Cut_t * pList1, Map_Cut_t * pList2 );
 static int              Map_CutBelongsToList( Map_Cut_t * pList, Map_Node_t * ppNodes[], int nNodes );
@@ -64,7 +67,7 @@ static int              Map_CutTableLookup( Map_CutTable_t * p, Map_Node_t * ppN
 static Map_Cut_t *      Map_CutTableConsider( Map_Man_t * pMan, Map_CutTable_t * p, Map_Node_t * ppNodes[], int nNodes );
 static void             Map_CutTableRestart( Map_CutTable_t * p );
 
-static Map_Cut_t *      Map_CutSortCuts( Map_Man_t * pMan, Map_CutTable_t * p, Map_Cut_t * pList );
+static Map_Cut_t *      Map_CutSortCuts( Map_Man_t * pMan, Map_CutTable_t * p, Map_Cut_t * pList, Map_Train_t * pPara );
 static int              Map_CutList2Array( Map_Cut_t ** pArray, Map_Cut_t * pList );
 static Map_Cut_t *      Map_CutArray2List( Map_Cut_t ** pArray, int nCuts );
 
@@ -91,7 +94,7 @@ static unsigned         Map_CutComputeTruth( Map_Man_t * p, Map_Cut_t * pCut, Ma
   Synopsis    [Counts all the cuts.]
 
   Description []
-               
+
   SideEffects []
 
   SeeAlso     []
@@ -120,13 +123,13 @@ int Map_MappingCountAllCuts( Map_Man_t * pMan )
                         nCuts4x++;
                     else if ( Map_CutRegular(pCut->pOne)->nLeaves == 3 || Map_CutRegular(pCut->pTwo)->nLeaves == 3 )
                         nCuts3x++;
-*/                  
+*/
 //                    pCounts[ Map_CutRegular(pCut->pOne)->nLeaves ]++;
 //                    pCounts[ Map_CutRegular(pCut->pTwo)->nLeaves ]++;
                 }
 //    printf( "Total cuts = %6d. 55 = %6d. 5x = %6d. 4x = %6d. 3x = %6d.\n", nCuts, nCuts55, nCuts5x, nCuts4x, nCuts3x );
 
-//    printf( "Total cuts = %6d. 6= %6d. 5= %6d. 4= %6d. 3= %6d. 2= %6d. 1= %6d.\n", 
+//    printf( "Total cuts = %6d. 6= %6d. 5= %6d. 4= %6d. 3= %6d. 2= %6d. 1= %6d.\n",
 //        nCuts, pCounts[6], pCounts[5], pCounts[4], pCounts[3], pCounts[2], pCounts[1] );
     return nCuts;
 }
@@ -135,21 +138,21 @@ int Map_MappingCountAllCuts( Map_Man_t * pMan )
 
   Synopsis    [Computes the cuts for each node in the object graph.]
 
-  Description [The cuts are computed in one sweep over the mapping graph. 
-  First, the elementary cuts, which include the node itself, are assigned 
+  Description [The cuts are computed in one sweep over the mapping graph.
+  First, the elementary cuts, which include the node itself, are assigned
   to the PI nodes. The internal nodes are considered in the DFS order.
   Each node is two-input AND-gate. So to compute the cuts at a node, we
   need to merge the sets of cuts of its two predecessors. The merged set
   contains only unique cuts with the number of inputs equal to k or less.
   Finally, the elementary cut, composed of the node itself, is added to
   the set of cuts for the node.
-  
+
   This procedure is pretty fast for 5-feasible cuts, but it dramatically
   slows down on some "dense" networks when computing 6-feasible cuts.
   The problem is that there are too many cuts in this case. We should
-  think how to heuristically trim the number of cuts in such cases, 
+  think how to heuristically trim the number of cuts in such cases,
   to have reasonable runtime.]
-               
+
   SideEffects []
 
   SeeAlso     []
@@ -169,7 +172,7 @@ void Map_MappingCutsInput( Map_Man_t * p, Map_Node_t * pNode )
     pCut->M[0].AreaFlow = 0.0;
     pCut->M[1].AreaFlow = 0.0;
 }
-void Map_MappingCuts( Map_Man_t * p )
+void Map_MappingCuts( Map_Man_t * p, Map_Train_t * pPara )
 {
     ProgressBar * pProgress;
     Map_CutTable_t * pTable;
@@ -191,7 +194,7 @@ void Map_MappingCuts( Map_Man_t * p )
         if ( Map_NodeIsBuf(pNode) )
             Map_MappingCutsInput( p, pNode );
         else if ( Map_NodeIsAnd(pNode) )
-            Map_CutCompute( p, pTable, pNode );
+            Map_CutCompute( p, pTable, pNode, pPara);
         else continue;
         Extra_ProgressBarUpdate( pProgress, i, "Cuts ..." );
     }
@@ -202,7 +205,7 @@ void Map_MappingCuts( Map_Man_t * p )
     if ( p->fVerbose )
     {
         nCuts = Map_MappingCountAllCuts(p);
-        printf( "Nodes = %6d.  Total %d-feasible cuts = %10d.  Per node = %.1f. ", 
+        printf( "Nodes = %6d.  Total %d-feasible cuts = %10d.  Per node = %.1f. ",
                p->nNodes, p->nVarsMax, nCuts, ((float)nCuts)/p->nNodes );
         ABC_PRT( "Time", Abc_Clock() - clk );
     }
@@ -216,13 +219,13 @@ void Map_MappingCuts( Map_Man_t * p )
   Synopsis    [Computes the cuts for one node.]
 
   Description []
-               
+
   SideEffects []
 
   SeeAlso     []
 
 ***********************************************************************/
-Map_Cut_t * Map_CutCompute( Map_Man_t * p, Map_CutTable_t * pTable, Map_Node_t * pNode )
+Map_Cut_t * Map_CutCompute( Map_Man_t * p, Map_CutTable_t * pTable, Map_Node_t * pNode, Map_Train_t * pPara)
 {
     Map_Node_t * pTemp;
     Map_Cut_t * pList, * pList1, * pList2;
@@ -236,8 +239,8 @@ Map_Cut_t * Map_CutCompute( Map_Man_t * p, Map_CutTable_t * pTable, Map_Node_t *
     pList1 = Map_Regular(pNode->p1)->pCuts;
     pList2 = Map_Regular(pNode->p2)->pCuts;
     // merge the lists
-    pList = Map_CutMergeLists( p, pTable, pList1, pList2, 
-        Map_IsComplement(pNode->p1), Map_IsComplement(pNode->p2) );
+    pList = Map_CutMergeLists( p, pTable, pList1, pList2,
+        Map_IsComplement(pNode->p1), Map_IsComplement(pNode->p2), pPara);
     // if there are functionally equivalent nodes, union them with this list
     assert( pList );
     // only add to the list of cuts if the node is a representative one
@@ -248,7 +251,7 @@ Map_Cut_t * Map_CutCompute( Map_Man_t * p, Map_CutTable_t * pTable, Map_Node_t *
             assert( pTemp->pCuts );
             pList = Map_CutUnionLists( pList, pTemp->pCuts );
             assert( pTemp->pCuts );
-            pList = Map_CutSortCuts( p, pTable, pList );
+            pList = Map_CutSortCuts( p, pTable, pList, pPara );
         }
     }
     // add the new cut
@@ -269,7 +272,7 @@ Map_Cut_t * Map_CutCompute( Map_Man_t * p, Map_CutTable_t * pTable, Map_Node_t *
             pCut->Phase = 1;
     }
 /*
-    { 
+    {
         int i, Counter = 0;;
         for ( pCut = pNode->pCuts->pNext; pCut; pCut = pCut->pNext )
             for ( i = 0; i < pCut->nLeaves; i++ )
@@ -286,14 +289,14 @@ Map_Cut_t * Map_CutCompute( Map_Man_t * p, Map_CutTable_t * pTable, Map_Node_t *
   Synopsis    [Filter the cuts using dominance.]
 
   Description []
-               
+
   SideEffects []
 
   SeeAlso     []
 
 ***********************************************************************/
 void Map_CutFilter( Map_Man_t * p, Map_Node_t * pNode )
-{ 
+{
     Map_Cut_t * pTemp, * pPrev, * pCut, * pCut2;
     int i, k, Counter;
 
@@ -325,8 +328,8 @@ void Map_CutFilter( Map_Man_t * p, Map_Node_t * pNode )
             // recycle pCut
             Map_CutFree( p, pCut );
         }
-        else 
-            pPrev = pCut; 
+        else
+            pPrev = pCut;
     }
 //  printf( "Dominated = %3d. \n", Counter );
 }
@@ -336,14 +339,14 @@ void Map_CutFilter( Map_Man_t * p, Map_Node_t * pNode )
   Synopsis    [Merges two lists of cuts.]
 
   Description []
-               
+
   SideEffects []
 
   SeeAlso     []
 
 ***********************************************************************/
-Map_Cut_t * Map_CutMergeLists( Map_Man_t * p, Map_CutTable_t * pTable, 
-    Map_Cut_t * pList1, Map_Cut_t * pList2, int fComp1, int fComp2 )
+Map_Cut_t * Map_CutMergeLists( Map_Man_t * p, Map_CutTable_t * pTable,
+    Map_Cut_t * pList1, Map_Cut_t * pList2, int fComp1, int fComp2, Map_Train_t * pPara )
 {
     Map_Node_t * ppNodes[6];
     Map_Cut_t * pListNew, ** ppListNew, * pLists[7] = { NULL };
@@ -372,7 +375,7 @@ Map_Cut_t * Map_CutMergeLists( Map_Man_t * p, Map_CutTable_t * pTable,
          fComp2 = fComp3;
     }
     // pList1 is shorter or equal length compared to pList2
- 
+
     // prepare the manager for the cut computation
     Map_CutTableRestart( pTable );
     // go through the cut pairs
@@ -495,7 +498,7 @@ QUITS :
         if ( pLists[i] == NULL )
             continue;
         // find the last entry
-        for ( pPrev = pLists[i], pCut = pPrev->pNext; pCut; 
+        for ( pPrev = pLists[i], pCut = pPrev->pNext; pCut;
             pPrev = pCut, pCut = pCut->pNext );
         // connect these lists
         *ppListNew = pLists[i];
@@ -503,7 +506,7 @@ QUITS :
     }
     *ppListNew = NULL;
     // soft the cuts by arrival times and use only the first MAP_CUTS_MAX_USE
-    pListNew = Map_CutSortCuts( p, pTable, pListNew );
+    pListNew = Map_CutSortCuts( p, pTable, pListNew, pPara );
     return pListNew;
 }
 
@@ -513,13 +516,13 @@ QUITS :
   Synopsis    [Merges two lists of cuts.]
 
   Description []
-               
+
   SideEffects []
 
   SeeAlso     []
 
 ***********************************************************************/
-Map_Cut_t * Map_CutMergeLists2( Map_Man_t * p, Map_CutTable_t * pTable, 
+Map_Cut_t * Map_CutMergeLists2( Map_Man_t * p, Map_CutTable_t * pTable,
     Map_Cut_t * pList1, Map_Cut_t * pList2, int fComp1, int fComp2 )
 {
     Map_Node_t * ppNodes[6];
@@ -562,7 +565,7 @@ QUITS :
         if ( pLists[i] == NULL )
             continue;
         // find the last entry
-        for ( pPrev = pLists[i], pCut = pPrev->pNext; pCut; 
+        for ( pPrev = pLists[i], pCut = pPrev->pNext; pCut;
             pPrev = pCut, pCut = pCut->pNext );
         // connect these lists
         *ppListNew = pLists[i];
@@ -570,7 +573,7 @@ QUITS :
     }
     *ppListNew = NULL;
     // soft the cuts by arrival times and use only the first MAP_CUTS_MAX_USE
-    pListNew = Map_CutSortCuts( p, pTable, pListNew );
+    pListNew = Map_CutSortCuts( p, pTable, pListNew, NULL);
     return pListNew;
 }
 
@@ -580,7 +583,7 @@ QUITS :
 
   Description [Returns the number of nodes in the resulting cut, or 0 if the
   cut is infeasible. Returns the resulting nodes in the array ppNodes[].]
-               
+
   SideEffects []
 
   SeeAlso     []
@@ -605,7 +608,7 @@ int Map_CutMergeTwo( Map_Cut_t * pCut1, Map_Cut_t * pCut2, Map_Node_t * ppNodes[
                 ppNodes[i] = pCut1->ppLeaves[i];
             return nNodesMax;
         }
-        else if ( pCut2->nLeaves == nNodesMax - 1 ) 
+        else if ( pCut2->nLeaves == nNodesMax - 1 )
         {
             // return 0 if the cuts are different
             fMismatch = 0;
@@ -681,7 +684,7 @@ int Map_CutMergeTwo( Map_Cut_t * pCut1, Map_Cut_t * pCut2, Map_Node_t * ppNodes[
   Synopsis    [Computes the union of the two lists of cuts.]
 
   Description []
-               
+
   SideEffects []
 
   SeeAlso     []
@@ -696,7 +699,7 @@ Map_Cut_t * Map_CutUnionLists( Map_Cut_t * pList1, Map_Cut_t * pList2 )
         pRoot = pTemp;
     // attach the non-trival part of the second cut to the end of the first
     assert( pRoot->pNext == NULL );
-    pRoot->pNext = pList2->pNext;   
+    pRoot->pNext = pList2->pNext;
     pList2->pNext = NULL;
     return pList1;
 }
@@ -706,9 +709,9 @@ Map_Cut_t * Map_CutUnionLists( Map_Cut_t * pList1, Map_Cut_t * pList2 )
 
   Synopsis    [Checks whether the given cut belongs to the list.]
 
-  Description [This procedure takes most of the runtime in the cut 
+  Description [This procedure takes most of the runtime in the cut
   computation.]
-               
+
   SideEffects []
 
   SeeAlso     []
@@ -735,7 +738,7 @@ int Map_CutBelongsToList( Map_Cut_t * pList, Map_Node_t * ppNodes[], int nNodes 
   Synopsis    [Prints the cuts in the list.]
 
   Description []
-               
+
   SideEffects []
 
   SeeAlso     []
@@ -757,7 +760,7 @@ void Map_CutListPrint( Map_Man_t * pMan, Map_Node_t * pRoot )
   Synopsis    [Prints the cuts in the list.]
 
   Description []
-               
+
   SideEffects []
 
   SeeAlso     []
@@ -779,7 +782,7 @@ void Map_CutListPrint2( Map_Man_t * pMan, Map_Node_t * pRoot )
   Synopsis    [Prints the cut.]
 
   Description []
-               
+
   SideEffects []
 
   SeeAlso     []
@@ -807,7 +810,7 @@ void Map_CutPrint_( Map_Man_t * pMan, Map_Cut_t * pCut, Map_Node_t * pRoot )
   Synopsis    [Starts the hash table to canonicize cuts.]
 
   Description []
-               
+
   SideEffects []
 
   SeeAlso     []
@@ -834,7 +837,7 @@ Map_CutTable_t * Map_CutTableStart( Map_Man_t * pMan )
   Synopsis    [Stops the hash table.]
 
   Description []
-               
+
   SideEffects []
 
   SeeAlso     []
@@ -855,7 +858,7 @@ void Map_CutTableStop( Map_CutTable_t * p )
   Synopsis    [Computes the hash value of the cut.]
 
   Description []
-               
+
   SideEffects []
 
   SeeAlso     []
@@ -877,7 +880,7 @@ unsigned Map_CutTableHash( Map_Node_t * ppNodes[], int nNodes )
 
   Description [Returns -1 if the same cut is found. Returns the index
   of the cell where the cut should be added, if it does not exist.]
-               
+
   SideEffects []
 
   SeeAlso     []
@@ -889,7 +892,7 @@ int Map_CutTableLookup( Map_CutTable_t * p, Map_Node_t * ppNodes[], int nNodes )
     unsigned Key;
     int b, i;
 
-    Key = Map_CutTableHash(ppNodes, nNodes) % p->nBins; 
+    Key = Map_CutTableHash(ppNodes, nNodes) % p->nBins;
     for ( b = Key; p->pBins[b]; b = (b+1) % p->nBins )
     {
         pCut = p->pBins[b];
@@ -910,7 +913,7 @@ int Map_CutTableLookup( Map_CutTable_t * p, Map_Node_t * ppNodes[], int nNodes )
   Synopsis    [Starts the hash table to canonicize cuts.]
 
   Description [Considers addition of the cut to the hash table.]
-               
+
   SideEffects []
 
   SeeAlso     []
@@ -947,7 +950,7 @@ Map_Cut_t * Map_CutTableConsider( Map_Man_t * pMan, Map_CutTable_t * p, Map_Node
 
   Description [Restarts the table by cleaning the info about cuts stored
   when the previous node was considered.]
-               
+
   SideEffects []
 
   SeeAlso     []
@@ -971,7 +974,7 @@ void Map_CutTableRestart( Map_CutTable_t * p )
   Synopsis    [Compares the cuts by the number of leaves and then by delay.]
 
   Description []
-               
+
   SideEffects []
 
   SeeAlso     []
@@ -986,18 +989,84 @@ int Map_CutSortCutsCompare( Map_Cut_t ** pC1, Map_Cut_t ** pC2 )
     return 0;
 }
 
+int Map_CutSortCutsCompare2( Map_Cut_t ** pC1, Map_Cut_t ** pC2 )
+{
+    if ( (*pC1)->nLeaves > (*pC2)->nLeaves )
+        return -1;
+    if ( (*pC1)->nLeaves < (*pC2)->nLeaves )
+        return 1;
+    return 0;
+}
+
+int Map_CutSortCutsCompare3( Map_Cut_t ** pC1, Map_Cut_t ** pC2 )
+{
+    if ( (*pC1)->nVolume < (*pC2)->nVolume )
+        return -1;
+    if ( (*pC1)->nVolume > (*pC2)->nVolume )
+        return 1;
+    return 0;
+}
+
+int Map_CutSortCutsCompare4( Map_Cut_t ** pC1, Map_Cut_t ** pC2 )
+{
+    if ( (*pC1)->uTruth < (*pC2)->uTruth )
+        return -1;
+    if ( (*pC1)->uTruth > (*pC2)->uTruth )
+        return 1;
+    return 0;
+}
+
+int Map_CutSortCutsCompare5( Map_Cut_t ** pC1, Map_Cut_t ** pC2 )
+{
+    if ( (*pC1)->nVolume > (*pC2)->nVolume )
+        return -1;
+    if ( (*pC1)->nVolume < (*pC2)->nVolume )
+        return 1;
+    return 0;
+}
+
+
+/**Function*************************************************************
+  Synopsis    [Randomly shuffles the array of cuts to check QoR impact.]
+  Description [Generic random shuffle procedure]
+
+  SideEffects []
+  SeeAlso     []
+***********************************************************************/
+static void shuffle(void *array, size_t n, size_t size) {
+    //struct timeval time = time(NULL);
+
+    srand(time(NULL));
+    // This if() is not needed functionally, but left per OP's style
+    if (n > 1) {
+        char *carray = array;
+        void * aux;
+        aux = malloc(size);
+        size_t i;
+        for (i = 1; i < n; ++i) {
+            size_t j = rand() % (i + 1);
+            j *= size;
+            memcpy(aux, &carray[j], size);
+            memcpy(&carray[j], &carray[i*size], size);
+            memcpy(&carray[i*size], aux, size);
+        }
+        free(aux);
+    }
+}
+
+
 /**Function*************************************************************
 
   Synopsis    [Sorts the cuts by average arrival time.]
 
   Description []
-               
+
   SideEffects []
 
   SeeAlso     []
 
 ***********************************************************************/
-Map_Cut_t * Map_CutSortCuts( Map_Man_t * pMan, Map_CutTable_t * p, Map_Cut_t * pList )
+Map_Cut_t * Map_CutSortCuts( Map_Man_t * pMan, Map_CutTable_t * p, Map_Cut_t * pList, Map_Train_t * pPara)
 {
     Map_Cut_t * pListNew;
     int nCuts, i;
@@ -1007,10 +1076,41 @@ Map_Cut_t * Map_CutSortCuts( Map_Man_t * pMan, Map_CutTable_t * p, Map_Cut_t * p
     assert( nCuts <= MAP_CUTS_MAX_COMPUTE );
     // sort the cuts
 //clk = Abc_Clock();
-    qsort( (void *)p->pCuts1, (size_t)nCuts, sizeof(Map_Cut_t *), 
-            (int (*)(const void *, const void *)) Map_CutSortCutsCompare );
-//pMan->time2 += Abc_Clock() - clk;
-    // move them back into the list
+    if (pPara == NULL || pPara->isTrain == 0  || pPara->randCutCount <= 0) {
+        qsort( (void *)p->pCuts1, (size_t)nCuts, sizeof(Map_Cut_t *),
+               (int (*)(const void *, const void *)) Map_CutSortCutsCompare );
+        //pMan->time2 += Abc_Clock() - clk;
+        // move them back into the list
+
+    } else {
+//        shuffle( (void *)p->pCuts1, nCuts, sizeof(Map_Cut_t *) );
+        if (pPara->randType == 2 ){
+            qsort( (void *)p->pCuts1, (size_t)nCuts, sizeof(Map_Cut_t *),
+                   (int (*)(const void *, const void *)) Map_CutSortCutsCompare2 );
+        } else if (pPara->randType == 3 ){
+            qsort( (void *)p->pCuts1, (size_t)nCuts, sizeof(Map_Cut_t *),
+                   (int (*)(const void *, const void *)) Map_CutSortCutsCompare3 );
+        }else if (pPara->randType == 4 ){
+            qsort( (void *)p->pCuts1, (size_t)nCuts, sizeof(Map_Cut_t *),
+                   (int (*)(const void *, const void *)) Map_CutSortCutsCompare4 );
+        }else if (pPara->randType == 5 ){
+            qsort( (void *)p->pCuts1, (size_t)nCuts, sizeof(Map_Cut_t *),
+                   (int (*)(const void *, const void *)) Map_CutSortCutsCompare5 );
+        }else{
+            qsort( (void *)p->pCuts1, (size_t)nCuts, sizeof(Map_Cut_t *),
+                   (int (*)(const void *, const void *)) Map_CutSortCutsCompare );
+        }
+
+//        if ( nCuts > pPara->randCutCount - 1 )
+//        {
+//            // free the remaining cuts
+//            for ( i = pPara->randCutCount - 1; i < nCuts; i++ )
+//                Extra_MmFixedEntryRecycle( pMan->mmCuts, (char *)p->pCuts1[i] );
+//            // update the number of cuts
+//            nCuts = pPara->randCutCount - 1;
+//        }
+
+    }
     if ( nCuts > MAP_CUTS_MAX_USE - 1 )
     {
         // free the remaining cuts
@@ -1019,8 +1119,10 @@ Map_Cut_t * Map_CutSortCuts( Map_Man_t * pMan, Map_CutTable_t * p, Map_Cut_t * p
         // update the number of cuts
         nCuts = MAP_CUTS_MAX_USE - 1;
     }
+
     pListNew = Map_CutArray2List( p->pCuts1, nCuts );
     return pListNew;
+
 }
 
 /**Function*************************************************************
@@ -1028,7 +1130,7 @@ Map_Cut_t * Map_CutSortCuts( Map_Man_t * pMan, Map_CutTable_t * p, Map_Cut_t * p
   Synopsis    [Moves the nodes from the list into the array.]
 
   Description []
-               
+
   SideEffects []
 
   SeeAlso     []
@@ -1047,7 +1149,7 @@ int Map_CutList2Array( Map_Cut_t ** pArray, Map_Cut_t * pList )
   Synopsis    [Moves the nodes from the array into the list.]
 
   Description []
-               
+
   SideEffects []
 
   SeeAlso     []
@@ -1077,7 +1179,7 @@ Map_Cut_t * Map_CutArray2List( Map_Cut_t ** pArray, int nCuts )
   Synopsis    [Computes the truth table of the 5-input cut.]
 
   Description []
-               
+
   SideEffects []
 
   SeeAlso     []
@@ -1175,4 +1277,5 @@ unsigned Map_CutComputeTruth( Map_Man_t * p, Map_Cut_t * pCut, Map_Cut_t * pTemp
 ////////////////////////////////////////////////////////////////////////
 
 ABC_NAMESPACE_IMPL_END
+
 

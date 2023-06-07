@@ -31,6 +31,59 @@ static void Map_TruthsCut( Map_Man_t * pMan, Map_Cut_t * pCut );
 extern void Map_TruthsCutOne( Map_Man_t * p, Map_Cut_t * pCut, unsigned uTruth[] );
 static void Map_CutsCollect_rec( Map_Cut_t * pCut, Map_NodeVec_t * vVisited );
 
+Map_Cut_t * Map_CutArray2List( Map_Cut_t ** pArray, int nCuts )
+{
+    Map_Cut_t * pListNew, ** ppListNew;
+    int i;
+    pListNew  = NULL;
+    ppListNew = &pListNew;
+    for ( i = 0; i < nCuts; i++ )
+    {
+        // connect these lists
+        *ppListNew = pArray[i];
+        ppListNew  = &pArray[i]->pNext;
+    }
+//printf( "\n" );
+
+    *ppListNew = NULL;
+    return pListNew;
+}
+
+int Map_CutList2Array( Map_Cut_t ** pArray, Map_Cut_t * pList )
+{
+    int i;
+    for ( i = 0; pList; pList = pList->pNext, i++ )
+        pArray[i] = pList;
+    return i;
+}
+
+/**Function*************************************************************
+  Synopsis    [Randomly shuffles the array of cuts to check QoR impact.]
+  Description [Generic random shuffle procedure]
+
+  SideEffects []
+  SeeAlso     []
+***********************************************************************/
+static void shuffle(void *array, size_t n, size_t size) {
+    //struct timeval time = time(NULL);
+
+    srand(time(NULL));
+    // This if() is not needed functionally, but left per OP's style
+    if (n > 1) {
+        char *carray = array;
+        void * aux;
+        aux = malloc(size);
+        size_t i;
+        for (i = 1; i < n; ++i) {
+            size_t j = rand() % (i + 1);
+            j *= size;
+            memcpy(aux, &carray[j], size);
+            memcpy(&carray[j], &carray[i*size], size);
+            memcpy(&carray[i*size], aux, size);
+        }
+        free(aux);
+    }
+}
 ////////////////////////////////////////////////////////////////////////
 ///                     FUNCTION DEFINITIONS                         ///
 ////////////////////////////////////////////////////////////////////////
@@ -46,7 +99,7 @@ static void Map_CutsCollect_rec( Map_Cut_t * pCut, Map_NodeVec_t * vVisited );
   SeeAlso     []
 
 ***********************************************************************/
-void Map_MappingTruths( Map_Man_t * pMan ) {
+void Map_MappingTruths( Map_Man_t * pMan, Map_Train_t * pPara ) {
     ProgressBar *pProgress;
     Map_Node_t *pNode;
     Map_Cut_t *pCut;
@@ -78,6 +131,56 @@ void Map_MappingTruths( Map_Man_t * pMan ) {
         Extra_ProgressBarUpdate(pProgress, i, "Tables ...");
     }
     Extra_ProgressBarStop(pProgress);
+
+    // update by junfeng. drop the cuts that can not be implemented by supergates.
+//    Map_Cut_t * pCutCur, *pCutPrev;
+//    for (i = 0; i < nNodes; i++) {
+//        pNode = pMan->vMapObjs->pArray[i];
+//        if (!Map_NodeIsAnd(pNode))
+//            continue;
+//        assert(pNode->pCuts);
+//        if (pNode->pCuts->nLeaves != 1 ) {
+//            printf("i:%d;%d\n",i, pNode->pCuts->nLeaves);
+//        }
+////        assert(pNode->pCuts->nLeaves == 1);
+//        // if the first cut can not be implemented by supergates.
+//        pCut = pNode->pCuts->pNext;
+//        while(pCut && pCut->M[0].pSupers == NULL && pCut->M[1].pSupers== NULL ){
+//            pCut = pCut->pNext;
+//        }
+//        // if the other cut can not be implemented by supergates.
+//        pCutPrev = NULL;
+//        pCutCur = pCut;
+//        while(pCutCur) {
+//            if(pCutCur->M[0].pSupers == NULL && pCutCur->M[1].pSupers== NULL ){
+//                pCutCur = pCutCur->pNext;
+//            } else{
+//                pCutPrev = pCutCur;
+//                pCutCur = pCutCur->pNext;
+//            }
+//        }
+//
+//        //train strategy 3: random cut filter
+//        if (pPara != NULL && pPara->isTrain == 1  && pPara->randCutCount > 0) {
+//            Map_Cut_t * pListNew;
+//            Map_Cut_t ** pArrayCut = ABC_ALLOC( Map_Cut_t *, 1000);
+//            int nCuts ;
+//            // move the cuts from the list into the array
+//            nCuts = Map_CutList2Array( pArrayCut, pNode->pCuts);
+//            shuffle(  pArrayCut, nCuts, sizeof(Map_Cut_t *) );
+//            if ( nCuts > pPara->randCutCount - 1 )
+//            {
+//                // free the remaining cuts
+//                for ( i = pPara->randCutCount - 1; i < nCuts; i++ )
+//                    Extra_MmFixedEntryRecycle( pMan->mmCuts, (char *)pArrayCut[i] );
+//                // update the number of cuts
+//                nCuts = pPara->randCutCount - 1;
+//            }
+//            pListNew = Map_CutArray2List(pArrayCut, nCuts );
+//            pNode->pCuts = pListNew;
+//        }
+//
+//    }
 
     // liujf: 输出每个节点对应的cut 和 supergate实现
 //    Map_Super_t * pSuper;

@@ -365,7 +365,7 @@ struct Map_HashEntryStruct_t_
 
 /*=== mapperCanon.c =============================================================*/
 /*=== mapperCut.c ===============================================================*/
-extern void              Map_MappingCuts( Map_Man_t * p );
+extern void              Map_MappingCuts( Map_Man_t * p, Map_Train_t * pPara);
 /*=== mapperCutUtils.c ===============================================================*/
 extern Map_Cut_t *       Map_CutAlloc( Map_Man_t * p );
 extern void              Map_CutFree( Map_Man_t * p, Map_Cut_t * pCut );
@@ -429,7 +429,7 @@ extern void              Map_TimeComputeRequiredGlobal( Map_Man_t * p );
 
 extern void              Map_TimeComputeRequiredGlobalPre( Map_Man_t * p ); // added by liujf
 /*=== mapperTruth.c ===============================================================*/
-extern void              Map_MappingTruths( Map_Man_t * pMan );
+extern void              Map_MappingTruths( Map_Man_t * pMan, Map_Train_t * pPara );
 extern int               Map_TruthsCutDontCare( Map_Man_t * pMan, Map_Cut_t * pCut, unsigned * uTruthDc );
 extern int               Map_TruthCountOnes( unsigned * uTruth, int nLeaves );
 extern int               Map_TruthDetectTwoFirst( unsigned * uTruth, int nLeaves );

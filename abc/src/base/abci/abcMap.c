@@ -99,7 +99,6 @@ Abc_Ntk_t * Abc_NtkMap( Abc_Ntk_t * pNtk, double DelayTarget, double AreaMulti, 
     // liujf: write genlib library.
     // Abc_SclWriteLiberty( "asap.lib", Abc_FrameReadLibScl() );
 
-
     // quit if there is no library
     if ( pLib == NULL )
     {
@@ -131,7 +130,6 @@ Abc_Ntk_t * Abc_NtkMap( Abc_Ntk_t * pNtk, double DelayTarget, double AreaMulti, 
         // liujf:
 //       Map_printSuperLib((Map_SuperLib_t *)Abc_FrameReadLibSuper());
     }
-
 
     // return the library to normal
     if ( AreaMulti != 0.0 )

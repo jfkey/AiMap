@@ -170,11 +170,17 @@ int Map_MatchNodeCut( Map_Man_t * p, Map_Node_t * pNode, Map_Cut_t * pCut, int f
     Map_Super_t * pSuper;
     int i, Counter;
 
+    int hasSuper = 0;
     // save the current match of the cut
     MatchBest = *pMatch;
     // go through the supergates
     for ( pSuper = pMatch->pSupers, Counter = 0; pSuper; pSuper = pSuper->pNext, Counter++ )
     {
+        if (hasSuper == 0 && para != NULL ){
+            hasSuper = 1;
+            para->cutCoutItera += 1;
+        }
+
         p->nMatches++;
         // this is an attempt to reduce the runtime of matching and area 
         // at the cost of rare and very minor increase in delay
@@ -310,6 +316,7 @@ int Map_MatchNodePhase( Map_Man_t * p, Map_Node_t * pNode, int fPhase, Map_Train
  
     // select the new best cut
     fWorstLimit = pNode->tRequired[fPhase].Worst;
+    if (para != NULL) {para->cutCoutItera = 0;}
     for ( pCut = pNode->pCuts->pNext; pCut; pCut = pCut->pNext )
     {
 //        printf("\t");
@@ -318,6 +325,9 @@ int Map_MatchNodePhase( Map_Man_t * p, Map_Node_t * pNode, int fPhase, Map_Train
 //        }
 //        printf("\n");
 
+        if (para != NULL && para->cutCoutItera > para->randCutCount){
+            break;
+        }
         // limit gate sizes based on fanout count
         if ( p->fSkipFanout && ((pNode->nRefs > 3 && pCut->nLeaves > 2) || (pNode->nRefs > 1 && pCut->nLeaves > 3)) )
             continue;
@@ -339,6 +349,7 @@ int Map_MatchNodePhase( Map_Man_t * p, Map_Node_t * pNode, int fPhase, Map_Train
             if ( p->fMappingMode == 0 )
                 fWorstLimit = MatchBest.tArrive.Worst;
         }
+
     }
 
     if ( pCutBest == NULL )

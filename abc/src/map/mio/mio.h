@@ -84,6 +84,9 @@ struct Map_TrainParaStruct_t_
     float              tau;
     float              beta;
     float              constF;
+    int                randCutCount;
+    int                cutCoutItera;
+    int                randType;
 
 };
 

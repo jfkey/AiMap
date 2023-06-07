@@ -66,12 +66,12 @@ int Map_Mapping( Map_Man_t * p, char * nodeFileStr, char * cutFileStr, char* pre
 
     // compute the cuts of nodes in the DFS order
     clk = Abc_Clock();
-    Map_MappingCuts( p );
+    Map_MappingCuts( p, para );
     p->timeCuts = Abc_Clock() - clk;
     // derive the truth tables 
     clk = Abc_Clock();
     // 计算每个cut对应的TT，并为每个Cut找到对应的supergate的实现，初始化pCut->M
-    Map_MappingTruths( p );
+    Map_MappingTruths( p, para);
     p->timeTruth = Abc_Clock() - clk;
     //////////////////////////////////////////////////////////////////////
 //ABC_PRT( "Truths", Abc_Clock() - clk );
