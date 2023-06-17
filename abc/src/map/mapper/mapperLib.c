@@ -325,14 +325,14 @@ void Map_MappingWriteNodeFeatures(Map_Man_t * pMan, FILE * pNodeFile) {
 
         float relativeLevel = (totalLevel - pNode->Level)/totalLevel;
         if (pNode->p1 != NULL && pNode->p2 != NULL) {
-            fprintf(pNodeFile, "%d,%d,%.3f,%u,%d,%.3f,%u,%d,%.3f,%u,%.3f\n",
-                    pNode->Num,  pNode->nFanouts, pNode->Level*1.0/totalLevel, pNode->fInv,
-                    Map_Regular(pNode->p1)->nFanouts,  1.0*pNode->p1->Level/totalLevel, pNode->p1->fInv,
-                    Map_Regular(pNode->p2)->nFanouts,  1.0*pNode->p2->Level/totalLevel, pNode->p2->fInv, relativeLevel);
+            fprintf(pNodeFile, "%d,%d,%d,%u,%d,%d,%u,%d,%d,%u,%.3f\n",
+                    pNode->Num,  pNode->nFanouts, pNode->Level, pNode->fInv,
+                    Map_Regular(pNode->p1)->nFanouts,  pNode->p1->Level, pNode->p1->fInv,
+                    Map_Regular(pNode->p2)->nFanouts,  pNode->p2->Level, pNode->p2->fInv, relativeLevel);
         } else{
-            fprintf(pNodeFile, "%d,%d,%.3f,%u,%d,%.3f,%u,%d,%.3f,%u,%.3f\n",
-                    pNode->Num,  pNode->nFanouts, pNode->Level*1.0/totalLevel, pNode->fInv,
-                    0, 0.0, 0, 0, 0.0, 0, relativeLevel);
+            fprintf(pNodeFile, "%d,%d,%d,%u,%d,%d,%u,%d,%d,%u,%.3f\n",
+                    pNode->Num,  pNode->nFanouts, pNode->Level, pNode->fInv,
+                    0, 0, 0, 0, 0, 0, relativeLevel);
         }
 
     }
@@ -426,7 +426,7 @@ void Map_MappingUpdateDelay(Map_Man_t * pMan, Map_SuperLib_t * p, FILE * preDela
                 Vec_Ptr_t * cutSuperNames = Vec_PtrAlloc(100);
 
                 for ( pSuper = pMatch->pSupers, sCount = 0; pSuper; pSuper = pSuper->pNext, sCount++ ) {
-                    if (sCount >= 30) break;
+                    if (sCount >= 1) break;
                     char* curSuperName = Mio_GateReadName(pSuper->pRoot);
                     if (isVecContainName(cutSuperNames, curSuperName) == 1 ) {
                         // set other supergate to
@@ -455,9 +455,14 @@ void Map_MappingWriteCutFeatures(Map_Man_t * pMan, Map_SuperLib_t * p, FILE * pC
     Map_Node_t * pNode;
     int i = 0, j = 0, k = 0, nFi = 0;
     fprintf(pCutFile, "node_id,c1,c2,c3,c4,c5,"
-                      "nleaves,nvolume,p1_nleaves,p2_nleaves,p1_nvolume,p2_nvolume,max_level,min_level,level_gap,max_fanout,min_fanout,fanout_gap,"
-                      "cell_name,s_delay_r,s_delay_f,s_area,s_f1_delay,s_f2_delay,s_f3_delay,s_f4_delay,s_f5_delay,s_f6_delay,phase\n" );
-
+                      "nleaves,nvolume,p1_nleaves,p2_nleaves,p1_nvolume,p2_nvolume,max_level,min_level,level_gap,max_fanout,min_fanout,fanout_gap,cut_hashID,"
+                      "cell_name,s_delay_r,s_delay_f,s_area,root_fanout,est_delay1,est_delay2,est_delay3,est_delay4,"
+                      "s_f1_delay,s_f2_delay,s_f3_delay,s_f4_delay,s_f5_delay,s_f6_delay,phase\n" );
+    // max_level: int
+    // max_fanout: int
+    // root_fanout: int
+    // phase: int
+    int factorArr[5] = {11, 7, 5, 3, 1};
     for ( i = 0; i < pMan->vMapObjs->nSize; i++ )
     {
         // for each node
@@ -484,6 +489,7 @@ void Map_MappingWriteCutFeatures(Map_Man_t * pMan, Map_SuperLib_t * p, FILE * pC
 
         int sCount = 0;
         Map_Cut_t * pCut;
+        int root_fanout =  Map_Regular(pNode)->nFanouts;
         float totalLevel = Map_MappingGetMaxLevel(pMan) *1.0;
         for ( pCut = pNode->pCuts->pNext; pCut; pCut = pCut->pNext ) {
             for (k = 0; k < 2; k ++) {
@@ -492,7 +498,7 @@ void Map_MappingWriteCutFeatures(Map_Man_t * pMan, Map_SuperLib_t * p, FILE * pC
                 Vec_Ptr_t * cutSuperNames = Vec_PtrAlloc(100);
 
                 for ( pSuper = pMatch->pSupers, sCount = 0; pSuper; pSuper = pSuper->pNext, sCount++ ) {
-                    if (sCount >= 30) break;
+                    if (sCount >= 1) break;
                     char* curSuperName = Mio_GateReadName(pSuper->pRoot);
                     if (isVecContainName(cutSuperNames, curSuperName) == 1 ) {
                         continue;
@@ -502,9 +508,13 @@ void Map_MappingWriteCutFeatures(Map_Man_t * pMan, Map_SuperLib_t * p, FILE * pC
                     // node id
                     // "node_id,c1,c2,c3,c4,c5,"
                     fprintf( pCutFile, "%d,", pNode->Num );
-                    float  minLevel = 1000000, maxLevel = 0,  maxFanout = 0, minFanout = 10000;
+                    int  minLevel = 1000000, maxLevel = 0,  maxFanout = 0, minFanout = 10000;
+//                    char hashID[50]; hashID[0] = '\0';
+//                    char tmp_str[10];
+                    int hashID = 0;
                     for ( j = 0; j < pMan->nVarsMax; j++ ){
                         if ( pCut->ppLeaves[j] ){
+                            hashID += pCut->ppLeaves[j]->Num * factorArr[j];
                             fprintf( pCutFile,"%d,", pCut->ppLeaves[j]->Num );
                             if (pCut->ppLeaves[j]->Level < minLevel)
                                 minLevel = pCut->ppLeaves[j]->Level;
@@ -524,15 +534,23 @@ void Map_MappingWriteCutFeatures(Map_Man_t * pMan, Map_SuperLib_t * p, FILE * pC
                     fprintf( pCutFile,"%d,%d,", pCut->nLeaves,pCut->nVolume );
                     fprintf( pCutFile,"%d,%d,", pCut->pOne->nLeaves, pCut->pTwo->nLeaves );
                     fprintf( pCutFile,"%d,%d,", pCut->pOne->nVolume,pCut->pTwo->nVolume);
-                    fprintf( pCutFile,"%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,", maxLevel/totalLevel, minLevel/totalLevel,
-                             (maxLevel-minLevel)/totalLevel, maxFanout, minFanout, maxFanout-minFanout);
+                    fprintf( pCutFile,"%d,%d,%d,%d,%d,%d,", maxLevel, minLevel,
+                             (maxLevel-minLevel), maxFanout, minFanout, maxFanout-minFanout);
 
                     // supergate features
                     // "s_name,s_delay_r,s_delay_f,s_area,s_f1_delay,s_f2_delay,s_f3_delay,s_f4_delay,s_f5_delay,s_f6_delay,phase"
+                    fprintf( pCutFile,"%d,", hashID);
                     fprintf( pCutFile,"%s,", Mio_GateReadName(pSuper->pRoot));
                     fprintf( pCutFile,"%.3f,", pSuper->tDelayMax.Rise );
                     fprintf( pCutFile,"%.3f,", pSuper->tDelayMax.Fall );
                     fprintf( pCutFile,"%.3f,", pSuper->Area );
+                    if (root_fanout > 2) {
+                        fprintf( pCutFile,"%d,%.3f,%.3f,%.3f,%.3f,", root_fanout, log(root_fanout)* pSuper->tDelayMax.Rise, log(root_fanout)* pSuper->tDelayMax.Fall,
+                                 sqrt(root_fanout)*pSuper->tDelayMax.Rise,  sqrt(root_fanout)*pSuper->tDelayMax.Fall);
+                    }  else {
+                        fprintf( pCutFile,"%d,%.3f,%.3f,%.3f,%.3f,", root_fanout, 1.2 * pSuper->tDelayMax.Rise, 1.2* pSuper->tDelayMax.Fall,
+                                 1.4* pSuper->tDelayMax.Rise, 1.4*pSuper->tDelayMax.Fall);
+                    }
                     for (nFi = 0; nFi < pSuper->nFanins; nFi++ )
                         fprintf( pCutFile,"%.3f,", (pSuper->tDelaysF[nFi].Fall + pSuper->tDelaysF[nFi].Rise + pSuper->tDelaysR[nFi].Fall +pSuper->tDelaysR[nFi].Rise ) / 2);
                     for (nFi; nFi < 6; nFi ++ )

@@ -1,82 +1,177 @@
 import torch
+from dataset import CutCellData, CutInfData
+from HAN import FusionModel
+from torch.utils.data import DataLoader
+from torch.utils.data import random_split
+import matplotlib.pyplot as plt
 import torch.nn as nn
-import torch.optim as optim
+import glob
+import pickle
 
 
-def train(model, dataloader, optimizer, device):
-    model.train()
-    total_loss = 0
-
-    for batch in dataloader:
-        input_features, targets, target_lengths = batch
-        input_features, targets = input_features.to(device), targets.to(device)
-
-        optimizer.zero_grad()
-        output = model(input_features, target_lengths)
-        loss = nn.CrossEntropyLoss()(output, targets)
-        loss.backward()
-        optimizer.step()
-
-        total_loss += loss.item()
-
-    return total_loss / len(dataloader)
-
-
-def evaluate(model, dataloader, device):
-    model.eval()
-    total_loss = 0
-
+def inference_circuit(model, inf_loader, inf_dataset, circuit_name, epoch):
+    model.eval()  # set the model to evaluation model
+    predictions = []
     with torch.no_grad():
-        for batch in dataloader:
-            input_features, targets, target_lengths = batch
-            input_features, targets = input_features.to(device), targets.to(device)
-
-            output = model(input_features, target_lengths)
-            loss = nn.CrossEntropyLoss()(output, targets)
-            total_loss += loss.item()
-
-    return total_loss / len(dataloader)
+        for i, (node_features, cut_features, cell_features) in enumerate(inf_loader):
+            outputs = model(node_features, cut_features, cell_features)
+            predictions.extend(outputs.numpy().flatten().tolist())
 
 
-def calculate_accuracy(output, targets):
-    _, predictions = torch.max(output, 1)
-    correct = (predictions == targets).float()
-    return correct.sum() / len(correct)
+    with open('../data/test/{}_predictions_{}.txt'.format(circuit_name, epoch), 'w') as f:
+        for i in range(len(inf_dataset)):
+            lineStr = str(inf_dataset.cut_data['node_id'][i])+ ',' + inf_dataset.cut_data['cell_name'][i] + ',' + str(inf_dataset.cut_data['phase'][i]) + ',' + "{:.4f}".format(predictions[i]) + '\n'
+            f.write(lineStr)
 
 
+if __name__ == '__main__':
+    node_files = sorted(glob.glob('../data/train_delay/*_node_emb.csv'))
+    cut_files = sorted(glob.glob('../data/train_delay/*_cut_emb.csv'))
+    cell_files = sorted(glob.glob('../data/train_delay/*_cell_emb.csv'))
+    labels_files = sorted(glob.glob('../data/train_delay/*_lables.csv'))
 
-# Set device
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    MAXLEVEL, MAXFANOUT, MAXROOTFANOUT = 9000, 1000, 1000
+    LEVELDIM, FANOUTDIM, ROOTFANOUTDIM = 4, 4, 4
+    levelEmb = nn.Embedding(MAXLEVEL, LEVELDIM)
+    fanoutEmb = nn.Embedding(MAXFANOUT, FANOUTDIM)
+    rootFanoutEmb = nn.Embedding(MAXROOTFANOUT, ROOTFANOUTDIM)
 
-# Instantiate model
-input_dim = 15
-hidden_dim = 128
-n_layers = 2
-dropout = 0.5
+    # Instantiate CutCellData
+    dataset = CutCellData(node_files, cut_files, cell_files, labels_files, levelEmb, fanoutEmb, rootFanoutEmb)
 
-model = PointerNet(input_dim, hidden_dim, n_layers, dropout).to(device)
+    # node_fea: 6x28, cut_fea: 1x16, cell_fea: 1x61
 
-# Set hyperparameters
-learning_rate = 0.001
-num_epochs = 50
+    # Set batch size
+    batch_size = 32
+    # Assuming you have dataset as instance of your CutCellData
+    # dataset = CutCellData(node_files, cut_files, cell_files, labels_files)
+    # stdD, meanD = dataset.std, dataset.mean
+    #
+    # Define the split sizes
+    train_size = int(0.8 * len(dataset))   # 80% for training
+    test_size = len(dataset) - train_size  # rest for testing
 
-# Create optimizer
-optimizer = optim.Adam(model.parameters(), lr=learning_rate)
+    # Split the dataset
+    train_dataset, test_dataset = random_split(dataset, [train_size, test_size])
 
-# Instantiate dataset and dataloader
-dataset = CutSelectionDataset(your_data)
-dataloader = DataLoader(dataset, batch_size=32, shuffle=True)
+    # Now you can create data loaders for each of these
+    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+    test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
 
-# Train and evaluate model
-for epoch in range(1, num_epochs + 1):
-    train_loss = train(model, dataloader, optimizer, device)
-    val_loss = evaluate(model, dataloader, device)
-    print(f'Epoch: {epoch}, Train Loss: {train_loss:.4f}, Val Loss: {val_loss:.4f}')
+    # Instantiate the MLPWithAttention model
+    node_feature_dim = 28
+    cut_feature_dim = 16
+    cell_feature_dim = 60
+    postmlp_dim = 32
+    fusion_dim = 12
+    output_dim = 1
+    pdrop = 0.1
+
+    # model = MLPWithAttention(node_feature_dim, cut_feature_dim, cell_feature_dim, hidden_dim, output_dim)
+    # model = FusionModel(node_feature_dim, cut_feature_dim, cell_feature_dim, fusion_size, pdrop)
+    model = FusionModel(node_feature_dim, cut_feature_dim, cell_feature_dim, fusion_dim, postmlp_dim, pdrop)
+    # Define loss function and optimizer
+    criterion = torch.nn.MSELoss()
+    optimizer = torch.optim.Adam(model.parameters(), lr=0.001, weight_decay=0.005)
+
+    ''' 
+    # Training loop
+    num_epochs = 10
+    best_loss = float('inf')
+    losses = []  # to keep track of losses
+
+    for epoch in range(num_epochs):
+        totalloss = 0.0
+        i = 0
+        for i, (node_features, cut_features, cell_features, labels) in enumerate(train_loader):
+            # Forward pass
+            outputs = model(node_features, cut_features, cell_features)
+            loss = criterion(outputs, labels)
+
+            # Backward pass
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+            totalloss += loss.item()
+
+        print(f"Epoch [{epoch + 1}/{num_epochs}], Loss: {totalloss/i:.4f}")
+        losses.append(loss.item())  # add the loss of each epoch to the list
+
+        # save the best model .
+        if (epoch + 1) % 1 == 0:
+            model.eval()
+            with torch.no_grad():
+                test_losses = []
+                for node_features, cut_features, cell_features, labels in test_loader:
+                    outputs = model(node_features, cut_features, cell_features)
+                    loss = criterion(outputs, labels)
+                    test_losses.append(loss.item())
+                avg_test_loss = sum(test_losses) / len(test_losses)
+                print(f"Epoch [{epoch + 1}/{num_epochs}], Test Loss: {avg_test_loss}")
+                # Save the model if it has the best loss so far
+                # if avg_test_loss < best_loss:
+                best_loss = avg_test_loss
+                torch.save(model.state_dict(), '../data/best_model_{}.pt'.format(epoch))
+                embDict = {}
+                embDict['levelEmb'] = levelEmb
+                embDict['fanoutEmb'] = fanoutEmb
+                embDict['rootFanoutEmb'] = rootFanoutEmb
+                with open("../data/emb_{}.pickle".format(epoch), "wb") as embFile:
+                    pickle.dump(embDict, embFile)
 
 
-# Save model
-torch.save(model.state_dict(), "model.pt")
+    # After training, plot the loss over epochs
+    plt.figure(figsize=(10, 5))
+    plt.plot(losses)
+    plt.title("Training Loss over Epochs")
+    plt.xlabel("Epoch")
+    plt.ylabel("Loss")
+    plt.grid(True)
+    plt.savefig('loss_plot.png')
+    plt.show()
+'''
 
-# Load model
-loaded_model = PointerNet(input_dim, hidden_dim, n_layers, dropout).to(device)
-loaded_model.load_state_dict(torch.load("model.pt"))
+    circuits = ['adder', 'max', 'sin', 'bar', 'router', 'i2c', 'priority']
+    # circuits = ['i2c']
+    for circuit_name in circuits:
+        print("inference circuit: {}".format(circuit_name))
+        node_files = sorted(glob.glob('../data/train_delay/{}_node_emb.csv'.format(circuit_name)))
+        cut_files = sorted(glob.glob('../data/train_delay/{}_cut_emb.csv'.format(circuit_name)))
+        cell_files = sorted(glob.glob('../data/train_delay/{}_cell_emb.csv'.format(circuit_name)))
+        labels_files = sorted(glob.glob('../data/train_delay/{}_lables.csv'.format(circuit_name)))
+        epoch = 2
+        with open("../data/emb_{}.pickle".format(epoch), "rb") as embFile:
+            embDict = pickle.load(embFile)
+        model.load_state_dict(torch.load('../data/best_model_{}.pt'.format(epoch)))
+
+        inf_dataset = CutInfData(node_files, cut_files, cell_files, embDict['levelEmb'], embDict['fanoutEmb'], embDict['rootFanoutEmb'], dataset.min_arr, dataset.max_arr)
+        inf_loader = DataLoader(inf_dataset, batch_size=batch_size, shuffle=False)
+        inference_circuit(model, inf_loader, inf_dataset, circuit_name, epoch)
+
+    '''
+    Epoch [1/10], Loss: 912.8060
+Epoch [1/10], Test Loss: 442.6503408578726
+Epoch [2/10], Loss: 573.8267
+Epoch [2/10], Test Loss: 357.61758868877706
+Epoch [3/10], Loss: 481.0738
+Epoch [3/10], Test Loss: 303.74356853778545
+Epoch [4/10], Loss: 417.8749
+Epoch [4/10], Test Loss: 455.14270782470703
+Epoch [5/10], Loss: 355.2172
+Epoch [5/10], Test Loss: 1142.1675201416015
+Epoch [6/10], Loss: 385.0006
+Epoch [6/10], Test Loss: 737.5146354675293
+Epoch [7/10], Loss: 302.1590
+Epoch [7/10], Test Loss: 1491.701126216008
+Epoch [8/10], Loss: 286.9986
+Epoch [8/10], Test Loss: 1593.0306782062237
+Epoch [9/10], Loss: 281.8444
+Epoch [9/10], Test Loss: 1519.0283362755408
+Epoch [10/10], Loss: 255.6557
+Epoch [10/10], Test Loss: 1082.961026763916
+WireLoad = "none"  Gates =   2448 ( 12.3 %)   Cap =  0.9 ff (  2.2 %)   Area =     2877.51 ( 87.7 %)   Delay =  1510.98 ps  ( 42.4 %)               
+abc 03> read_lib -v /home/liujunfeng/SLAP/ML-Mapper/abc/asap7_clean.lib; read /home/liujunfeng/benchmarks/random-arith/bar.aig;  map -P ../../data/test/bar_predictions_2.txt; stime;
+Warning: Detected 2 multi-output gates (for example, "FAx1_ASAP7_75t_R").
+Loaded predicted supergate delay from the file "../../data/test/bar_predictions_2.txt ".
+WireLoad = "none"  Gates =   2264 ( 17.7 %)   Cap =  0.8 ff (  3.2 %)   Area =     2577.04 ( 82.3 %)   Delay =  1248.09 ps  ( 15.7 %)    
+    '''

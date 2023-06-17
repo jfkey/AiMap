@@ -475,6 +475,11 @@ Abc_Obj_t * Abc_NodeFromMapPhase_rec( Abc_Ntk_t * pNtkNew, Map_Node_t * pNodeMap
     nLeaves    = Map_CutReadLeavesNum( pCutBest );
     ppLeaves   = Map_CutReadLeaves( pCutBest );
 
+    int hashID = 0;
+    int factorArr[5] = {11, 7, 5, 3, 1};
+    for ( i = 0; i < nLeaves; i++ ) {
+        hashID += Map_NodeReadNum(ppLeaves[i]) * factorArr[i];
+    }
 
     // collect the PI nodes
     for ( i = 0; i < nLeaves; i++ )
@@ -487,6 +492,9 @@ Abc_Obj_t * Abc_NodeFromMapPhase_rec( Abc_Ntk_t * pNtkNew, Map_Node_t * pNodeMap
     // implement the supergate
     pNodeNew = Abc_NodeFromMapSuper_rec( pNtkNew, pNodeMap, pSuperBest, pNodePIs, nLeaves );
     Map_NodeSetData( pNodeMap, fPhase, (char *)pNodeNew );
+    Abc_ObjSetMapHashCutID(pNodeNew, hashID);
+
+
 
     // liujf: , Abc_SclObjCell(pNodeNew)
 //    printf("node id: %d,  ", Abc_ObjId(pNodeNew));
@@ -522,6 +530,8 @@ Abc_Obj_t * Abc_NodeFromMap_rec( Abc_Ntk_t * pNtkNew, Map_Node_t * pNodeMap, int
         Abc_Obj_t * tmp = Abc_NodeFromMapPhase_rec( pNtkNew, pNodeMap, fPhase );
         Abc_ObjSetMapNtkId(tmp, Map_NodeReadNum(pNodeMap));
         Abc_ObjSetMapNtkPhase(tmp, fPhase);
+
+
         return tmp;
     }
 

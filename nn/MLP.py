@@ -46,29 +46,39 @@ class MLPWithAttention(nn.Module):
         output = self.mlp(combined_features)
 
         return output
-def inference_data(model, infdata):
-    model.eval()  # set the model to evaluation mode
 
+def inference_data(model, inf_loader, inf_dataset, stdD, meanD):
+    model.eval()  # set the model to evaluation model
     predictions = []
-
     with torch.no_grad():
-        for i, (node_features, cut_features, cell_features, labels) in enumerate(infdata):
+        for i, (node_features, cut_features, cell_features) in enumerate(inf_loader):
             node_features = node_features.unsqueeze(1)
             cut_features = cut_features.unsqueeze(1)
             cell_features = cell_features.unsqueeze(1)
 
             outputs = model(node_features, cut_features, cell_features)
-            predictions.append(outputs.squeeze().detach().numpy())
+            # Convert predictions back to the original scale
+            outputs = outputs * stdD + meanD
+            predictions.extend(outputs.numpy().flatten().tolist())
 
-    # Flatten the list of predictions
-    predictions = [item for sublist in predictions for item in sublist]
+
+    # Write the predictions to a file
+    # with open('predictions.txt', 'w') as f:
+    #     for pred in predictions:
+    #         f.write(f"{pred}\n")
+    with open('../data/test/predictions.txt', 'w') as f:
+        for i in range(len(inf_dataset)):
+            lineStr = str(inf_dataset.cut_data['node_id'][i])+ ',' + inf_dataset.cut_data['cell_name'][i] + ',' + str(inf_dataset.cut_data['phase'][i]) + ',' + "{:.4f}".format(predictions[i]) + '\n'
+            # f.write(f"{inf_dataset.cut_data['node_id'][i],inf_dataset.cut_data['cell_name'][i],inf_dataset.cut_data['phase'][i],predictions[i]}\n")
+            f.write(lineStr)
+
     return predictions
 
 if __name__ == '__main__':
     node_file = "../data/train/adder_node_emb.csv"
     cut_file = '../data/train/adder_cut_emb.csv'
     cell_file = '../data/train/adder_cell_emb.csv'
-    labels_file = '../data/train/adder_lables_recovery.csv'
+    labels_file = '../data/train/adder_lables.csv'
 
 
     # Instantiate CutCellData
@@ -76,10 +86,10 @@ if __name__ == '__main__':
 
     # Set batch size
     batch_size = 32
-
     # Assuming you have dataset as instance of your CutCellData
     dataset = CutCellData(node_file, cut_file, cell_file, labels_file)
-
+    stdD, meanD = dataset.std, dataset.mean
+    #
     # Define the split sizes
     train_size = int(0.8 * len(dataset))  # 80% for training
     test_size = len(dataset) - train_size  # rest for testing
@@ -89,25 +99,23 @@ if __name__ == '__main__':
 
     # Now you can create data loaders for each of these
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
-    test_loader = DataLoader(test_dataset, batch_size=batch_size,
-                             shuffle=False)  # usually you don't need shuffling for testing
+    test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
 
     # Instantiate the MLPWithAttention model
     node_feature_dim = 10
     cut_feature_dim = 61
     cell_feature_dim = 56
-    hidden_dim = 128
+    hidden_dim = 32
     output_dim = 1
 
     model = MLPWithAttention(node_feature_dim, cut_feature_dim, cell_feature_dim, hidden_dim, output_dim)
-
     # Define loss function and optimizer
     criterion = torch.nn.MSELoss()
-    optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
+    optimizer = torch.optim.Adam(model.parameters(), lr=0.001, weight_decay=0.005)
 
     # Training loop
     num_epochs = 100
-
+    best_loss = float('inf')
     losses = []  # to keep track of losses
 
     for epoch in range(num_epochs):
@@ -126,8 +134,30 @@ if __name__ == '__main__':
             loss.backward()
             optimizer.step()
 
-        print(f"Epoch [{epoch + 1}/{num_epochs}], Loss: {loss.item()}")
+        print(f"Epoch [{epoch + 1}/{num_epochs}], Loss: {loss.item():.4f}")
         losses.append(loss.item())  # add the loss of each epoch to the list
+
+        # save the best model .
+        if (epoch + 1) % 20 == 0:
+            model.eval()
+            with torch.no_grad():
+                test_losses = []
+                for node_features, cut_features, cell_features, labels in test_loader:
+                    node_features = node_features.unsqueeze(1)
+                    cut_features = cut_features.unsqueeze(1)
+                    cell_features = cell_features.unsqueeze(1)
+
+                    outputs = model(node_features, cut_features, cell_features)
+                    loss = criterion(outputs, labels)
+                    test_losses.append(loss.item())
+                avg_test_loss = sum(test_losses) / len(test_losses)
+                print(f"Epoch [{epoch + 1}/{num_epochs}], Test Loss: {avg_test_loss}")
+
+                # Save the model if it has the best loss so far
+                if avg_test_loss < best_loss:
+                    best_loss = avg_test_loss
+                    torch.save(model.state_dict(), '../data/best_model.pt')
+
 
     # After training, plot the loss over epochs
     plt.figure(figsize=(10, 5))
@@ -138,3 +168,9 @@ if __name__ == '__main__':
     plt.grid(True)
     plt.savefig('loss_plot.png')
     plt.show()
+
+    # model.load_state_dict(torch.load('../data/best_model.pt'))
+    # inf_dataset = CutInfData(node_file, cut_file, cell_file)
+    # inf_loader = DataLoader(inf_dataset, batch_size=batch_size, shuffle=False)
+    #
+    # inference_data(model, inf_loader, inf_dataset, stdD, meanD)

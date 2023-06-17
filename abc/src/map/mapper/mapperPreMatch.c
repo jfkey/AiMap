@@ -177,7 +177,7 @@ int Map_MatchNodeCutPre( Map_Man_t * p, Map_Node_t * pNode, Map_Cut_t * pCut, in
         // this is an attempt to reduce the runtime of matching and area
         // at the cost of rare and very minor increase in delay
         // (the supergates are sorted by increasing area)
-        if ( Counter == 30 )
+        if ( Counter == 1 )
             break;
 
         // go through different phases of the given match and supergate

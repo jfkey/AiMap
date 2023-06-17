@@ -349,7 +349,10 @@ float Map_TimeCutComputeArrivalPre( Map_Node_t * pNode, Map_Cut_t * pCut, int fP
     // return the worst-case of rise/fall arrival times
     ptArrRes->Worst = MAP_MAX(ptArrRes->Rise, ptArrRes->Fall);
     // update the estimated delay
-    ptArrRes->EstWorst = ptArrInWorst->EstWorst + Map_NodeReadPreDelay(pNode, Mio_GateReadName(pSuper->pRoot), fPhase );
+    float preFactor = 0.5;
+    ptArrRes->EstWorst = ptArrInWorst->EstWorst + preFactor * Map_NodeReadPreDelay(pNode, Mio_GateReadName(pSuper->pRoot), fPhase ) + (1-preFactor) * ptArrRes->Worst;
+//    ptArrRes->Worst = MAP_MAX(ptArrRes->Rise, ptArrRes->Fall);
+
 //    printf("node id: %d, super name: %s, phase: %d, pinDelay: %.3f, superWorst: %.3f, map cut delay: %f \n", pNode->Num, Mio_GateReadName(pSuper->pRoot), fPhase, pinDelay, pSuper->tDelayMax.Fall, ptArrRes->EstWorst);
 
     return ptArrRes->EstWorst;

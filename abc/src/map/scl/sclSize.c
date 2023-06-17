@@ -152,6 +152,7 @@ static inline void Abc_SclTimeNodeDump( SC_Man * p, Abc_Obj_t * pObj,    float m
     SC_Cell * pCell = Abc_ObjIsNode(pObj) ? Abc_SclObjCell(pObj) : NULL;
     // printf( "%8d : ",           Abc_ObjId(pObj) );
     fprintf(labelFile, "%d,", Abc_ObjMapNtkId(pObj) );
+    fprintf(labelFile, "%d,", Abc_ObjMapHashCutID(pObj) );
     fprintf( labelFile, "%d,", Abc_ObjMapNtkPhase(pObj) );
     fprintf( labelFile, "%s,",  pCell == NULL ? "pi"  : pCell->pName);
     fprintf( labelFile, "%.3f,", Abc_SclObjTimeMax(p, pObj)  - Abc_SclGetMaxDelayNodeFanins(p, pObj) );
@@ -284,7 +285,7 @@ void Abc_SclTimeNtkPrint( SC_Man * p, int fShowAll, int fPrintPath, char* cirNod
         printf( "Cannot open text file \"%s\" for writing labels.\n", labelFile );
     else
     {
-        fprintf( labelFile, "node_id,phase,cell_name,delay,max_delay\n");
+        fprintf( labelFile, "node_id,cut_hashID,phase,cell_name,delay,max_delay\n");
 
 //        Abc_Obj_t * pTemp, * pPrev = NULL;
 //        int iStart = -1, iEnd = -1, j = 0;
