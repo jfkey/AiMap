@@ -365,6 +365,8 @@ void Map_MappingUpdateDelay(Map_Man_t * pMan, Map_SuperLib_t * p, FILE * preDela
     Vec_Ptr_t * cellNameVec = Vec_PtrAlloc(1000);
     Vec_Int_t * phaseVec = Vec_IntAlloc(1000);
     Vec_Flt_t * preDelayVec = Vec_FltAlloc(1000);
+    Vec_Int_t * hashIDVec = Vec_IntAlloc(1000);
+
     char line[1024];
     while (fgets(line, 1024, preDelayFile) != NULL) {
         char *token;
@@ -381,6 +383,9 @@ void Map_MappingUpdateDelay(Map_Man_t * pMan, Map_SuperLib_t * p, FILE * preDela
         }
         token = strtok(NULL, ",");
         if (token != NULL)
+            Vec_IntPush(hashIDVec, atoi(token));
+        token = strtok(NULL, ",");
+        if (token != NULL)
             Vec_IntPush(phaseVec, atoi(token));
         token = strtok(NULL, ",");
         if (token != NULL)
@@ -389,10 +394,12 @@ void Map_MappingUpdateDelay(Map_Man_t * pMan, Map_SuperLib_t * p, FILE * preDela
     assert(nodeIdVec->nSize == cellNameVec->nSize);
     assert(nodeIdVec->nSize == phaseVec->nSize);
     assert(nodeIdVec->nSize == preDelayVec->nSize);
+    assert(nodeIdVec->nSize == hashIDVec->nSize);
+
 //    char * pEntry; int y = 0;
 //    Vec_PtrForEachEntry(char*, cellNameVec, pEntry, y )
 //        printf("%s\n", pEntry);
-
+    int factorArr[5] = {11, 7, 5, 3, 1};
     // update super node with the predicted delay
     Map_Node_t * pNode;
     int i = 0, idx = 0;
@@ -420,6 +427,12 @@ void Map_MappingUpdateDelay(Map_Man_t * pMan, Map_SuperLib_t * p, FILE * preDela
         Map_Cut_t * pCut;
         int sCount = 0, k = 0, j = 0;
         for ( pCut = pNode->pCuts->pNext; pCut; pCut = pCut->pNext ) {
+            // compute the hashID of the cut
+            int hashID = 0;
+            for ( j = 0; j < pMan->nVarsMax; j++ ){
+                if ( pCut->ppLeaves[j] )
+                    hashID += pCut->ppLeaves[j]->Num * factorArr[j];
+            }
             for (k = 0; k < 2; k ++) {
                 Map_Match_t * pMatch = pCut->M + k;
                 Map_Super_t * pSuper;
@@ -435,13 +448,14 @@ void Map_MappingUpdateDelay(Map_Man_t * pMan, Map_SuperLib_t * p, FILE * preDela
                         continue;
                     }
                     Vec_PtrPush (cutSuperNames, curSuperName);
-                    if (pNode->Num != Vec_IntEntry(nodeIdVec, idx) || strcmp(curSuperName, (char*)Vec_PtrEntry(cellNameVec, idx)) || k != Vec_IntEntry(phaseVec, idx))
+                    if (pNode->Num != Vec_IntEntry(nodeIdVec, idx) || strcmp(curSuperName, (char*)Vec_PtrEntry(cellNameVec, idx)) || k != Vec_IntEntry(phaseVec, idx) || hashID != Vec_IntEntry(hashIDVec, idx))
                         printf( "\nError: The index-to-value of delay for update prediction is incorrect: (%d,%s,%d,%d).\n",pNode->Num, curSuperName, k,  idx);
                     pSuper->tDelayPre.Rise = pSuper->tDelayPre.Fall = pSuper->tDelayPre.Worst
-                            =  pSuper->tDelayPre.EstWorst =   Vec_FltEntry(preDelayVec, idx); //Vec_FltEntry(preDelayVec, idx)
+                            =  pSuper->tDelayPre.EstWorst =  Vec_FltEntry(preDelayVec, idx); //Vec_FltEntry(preDelayVec, idx)
                     Vec_PtrPush(pNode->pPreSupres, curSuperName);
                     Vec_IntPush(pNode->pPrePhases, k);
                     Vec_FltPush(pNode->pPreDelys, Vec_FltEntry(preDelayVec, idx));
+                    Vec_IntPush(pNode->pPreHashCutID, hashID);
                     idx += 1;
                 }
                 Vec_PtrClear(cutSuperNames);

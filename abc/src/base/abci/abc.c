@@ -594,6 +594,7 @@ static int Abc_CommandAbc9ProdAdd            ( Abc_Frame_t * pAbc, int argc, cha
 static int Abc_CommandAbc9Test               ( Abc_Frame_t * pAbc, int argc, char ** argv );
 
 static int Abc_CommandGenTrain( Abc_Frame_t * pAbc, int argc, char ** argv ); // liujf
+static int Abc_CommandGenInf( Abc_Frame_t * pAbc, int argc, char ** argv ); // liujf
 
 extern int Abc_CommandAbcLivenessToSafety    ( Abc_Frame_t * pAbc, int argc, char ** argv );
 extern int Abc_CommandAbcLivenessToSafetySim ( Abc_Frame_t * pAbc, int argc, char ** argv );
@@ -1355,6 +1356,8 @@ void Abc_Init( Abc_Frame_t * pAbc )
 
     // liujf: generate train data
     Cmd_CommandAdd( pAbc, "SC mapping", "gen_train",       Abc_CommandGenTrain, 0);
+    Cmd_CommandAdd( pAbc, "SC mapping", "gen_inf",         Abc_CommandGenInf, 0);
+
     Cmd_CommandAdd( pAbc, "ABC9",         "&gen",          Abc_CommandAbc9Gen,                    0 );
     Cmd_CommandAdd( pAbc, "ABC9",         "&cfs",          Abc_CommandAbc9Cfs,                    0 );
     Cmd_CommandAdd( pAbc, "ABC9",         "&prodadd",      Abc_CommandAbc9ProdAdd,                0 );
@@ -51000,6 +51003,139 @@ int Abc_CommandGenTrain( Abc_Frame_t * pAbc, int argc, char ** argv ){
     Abc_Print( -2, "\t-h       : print the command usage\n");
     return 1;
 }
+
+
+int Abc_CommandGenInf( Abc_Frame_t * pAbc, int argc, char ** argv ){
+    Abc_Ntk_t * pNtk, * pNtkRes;
+    int c, fVerbose = 0;
+    // to generate test data
+    char * nodeFileStr;
+    char * cutFileStr;
+    char * cellFileStr;
+
+    int nodeFlag;
+    int cutFlag;
+    int cellFlag;
+    int trainFlag;
+
+
+    extern Abc_Ntk_t * Abc_genInf(Abc_Frame_t * pAbc, Abc_Ntk_t * pNtk,  char* nodeFileStr, char* cutFileStr, char* cellFileStr);
+
+    pNtk = Abc_FrameReadNtk(pAbc);
+    // set defaults
+    nodeFileStr = "";
+    cutFileStr  = "";
+    cellFileStr = "";
+    nodeFlag    = 0;
+    cutFlag     = 0;
+    cellFlag    = 0;
+    trainFlag   = 0;
+
+    Extra_UtilGetoptReset();
+    while ( ( c = Extra_UtilGetopt( argc, argv, "NCETih" ) ) != EOF )
+    {
+        switch ( c )
+        {
+            case 'N':
+                if ( globalUtilOptind >= argc )
+                {
+                    Abc_Print( -1, "Command line switch \"-N\" should be followed by a string pointing to the file.\n" );
+                    goto usage;
+                }
+                nodeFileStr = argv[globalUtilOptind];
+                globalUtilOptind++;
+                nodeFlag = 1;
+                break;
+            case 'C':
+                if ( globalUtilOptind >= argc )
+                {
+                    Abc_Print( -1, "Command line switch \"-C\" should be followed by a string pointing to the file.\n" );
+                    goto usage;
+                }
+                cutFileStr = argv[globalUtilOptind];
+                globalUtilOptind++;
+                cutFlag = 1;
+                break;
+            case 'E':
+                if ( globalUtilOptind >= argc )
+                {
+                    Abc_Print( -1, "Command line switch \"-E\" should be followed by a string pointing to the file.\n" );
+                    goto usage;
+                }
+                cellFileStr = argv[globalUtilOptind];
+                globalUtilOptind++;
+                cellFlag = 1;
+                break;
+            case 'h':
+                goto usage;
+            default:
+                goto usage;
+        }
+    }
+
+    if ( pNtk == NULL )
+    {
+        Abc_Print( -1, "Empty network.\n" );
+        return 1;
+    }
+    if ( nodeFlag== 0 || cutFlag == 0 || cellFlag == 0 )
+    {
+        Abc_Print( -1, "Need output files to dump the node, cut, cell  features for inference.\n" );
+    }
+
+
+    if ( !Abc_NtkIsStrash(pNtk) )
+    {
+        pNtk = Abc_NtkStrash( pNtk, 0, 0, 0 );
+        if ( pNtk == NULL )
+        {
+            Abc_Print( -1, "Strashing before mapping has failed.\n" );
+            return 1;
+        }
+        pNtk = Abc_NtkBalance( pNtkRes = pNtk, 0, 0, 1 );
+        Abc_NtkDelete( pNtkRes );
+        if ( pNtk == NULL )
+        {
+            Abc_Print( -1, "Balancing before mapping has failed.\n" );
+            return 1;
+        }
+        Abc_Print( 0, "The network was strashed and balanced before mapping.\n" );
+        // get the new network
+        Abc_genInf( pAbc,  pNtk,  nodeFileStr, cutFileStr, cellFileStr);
+ 
+        if ( pNtkRes == NULL )
+        {
+            Abc_NtkDelete( pNtk );
+            Abc_Print( -1, "Mapping has failed.\n" );
+            return 1;
+        }
+        Abc_NtkDelete( pNtk );
+    }
+    else
+    {
+        // get the new network
+        Abc_genInf( pAbc,  pNtk, nodeFileStr, cutFileStr, cellFileStr); 
+        if ( pNtkRes == NULL )
+        {
+            Abc_Print( -1, "Mapping has failed.\n" );
+            return 1;
+        }
+    }
+
+    // replace the current network
+    // Abc_FrameReplaceCurrentNetwork( pAbc, pNtkRes );
+    return 0;
+
+    usage:
+    Abc_Print( -2, "usage: gen_train [-NCET string] [-i num] [-h]\n" );
+    Abc_Print( -2, "\t           generate train files for delay-oriented standard cell mapping of the current network\n" );
+    Abc_Print( -2, "\t-N str   : the file to store the node features [default = %s]\n", nodeFileStr);
+    Abc_Print( -2, "\t-C str   : the file to store the cut features [default = %s]\n", cutFileStr );
+    Abc_Print( -2, "\t-E str   : the file to store the cell features [default = %s]\n", cellFileStr );
+    Abc_Print( -2, "\t-h       : print the command usage\n");
+    return 1;
+}
+
 
 ////////////////////////////////////////////////////////////////////////
 ///                       END OF FILE                                ///

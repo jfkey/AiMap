@@ -17,10 +17,10 @@ def inference_circuit(model, inf_loader, inf_dataset, circuit_name, epoch):
             outputs = model(node_features, cut_features, cell_features)
             predictions.extend(outputs.numpy().flatten().tolist())
 
-
     with open('../data/test/{}_predictions_{}.txt'.format(circuit_name, epoch), 'w') as f:
         for i in range(len(inf_dataset)):
-            lineStr = str(inf_dataset.cut_data['node_id'][i])+ ',' + inf_dataset.cut_data['cell_name'][i] + ',' + str(inf_dataset.cut_data['phase'][i]) + ',' + "{:.4f}".format(predictions[i]) + '\n'
+            lineStr = str(inf_dataset.cut_data['node_id'][i])+ ',' + inf_dataset.cut_data['cell_name'][i] + ',' + \
+                      str(inf_dataset.cut_data['cut_hashID'][i]) + ',' + str(inf_dataset.cut_data['phase'][i]) + ',' + "{:.4f}".format(predictions[i]) + '\n'
             f.write(lineStr)
 
 
@@ -131,14 +131,23 @@ if __name__ == '__main__':
     plt.show()
 '''
 
-    circuits = ['adder', 'max', 'sin', 'bar', 'router', 'i2c', 'priority']
+    # circuits = ['adder', 'max', 'sin', 'bar', 'router', 'i2c', 'priority']
+    # circuits = ["s444_comb", "C6288", "s526_comb", "rc256b", "log2", "square", "s9234_1_comb", "adder", "rc64b", "C880", "sin",
+    # "div", "hyp", "mul64-booth", "aes", "C7552", "max", "mul32-booth", "sqrt", "multiplier", "64b_mult", "bar",
+    # "s5378_comb", "C5315"]
+    # circuits = ["s444_comb", "C6288", "s526_comb", "rc256b","s9234_1_comb", "adder", "rc64b", "C880", "sin",
+    # "mul64-booth", "aes", "C7552", "max", "mul32-booth", "sqrt", "multiplier", "64b_mult", "bar",
+    # "s5378_comb", "C5315", "log2", "square", "div", "hyp"]
+
+    circuits = ["sin", "mul64-booth", "aes", "C7552", "max", "mul32-booth", "sqrt", "multiplier", "64b_mult", "bar",
+    "s5378_comb", "C5315", "log2", "square", "div", "hyp"]
+
     # circuits = ['i2c']
     for circuit_name in circuits:
         print("inference circuit: {}".format(circuit_name))
-        node_files = sorted(glob.glob('../data/train_delay/{}_node_emb.csv'.format(circuit_name)))
-        cut_files = sorted(glob.glob('../data/train_delay/{}_cut_emb.csv'.format(circuit_name)))
-        cell_files = sorted(glob.glob('../data/train_delay/{}_cell_emb.csv'.format(circuit_name)))
-        labels_files = sorted(glob.glob('../data/train_delay/{}_lables.csv'.format(circuit_name)))
+        node_files = sorted(glob.glob('../data/test/{}_node_emb.csv'.format(circuit_name)))
+        cut_files = sorted(glob.glob('../data/test/{}_cut_emb.csv'.format(circuit_name)))
+        cell_files = sorted(glob.glob('../data/test/{}_cell_emb.csv'.format(circuit_name)))
         epoch = 2
         with open("../data/emb_{}.pickle".format(epoch), "rb") as embFile:
             embDict = pickle.load(embFile)

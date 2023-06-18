@@ -497,6 +497,7 @@ Map_Node_t * Map_NodeAnd( Map_Man_t * pMan, Map_Node_t * p1, Map_Node_t * p2 )
     pEnt->pPreSupres = Vec_PtrAlloc(16);
     pEnt->pPrePhases = Vec_IntAlloc(16);
     pEnt->pPreDelys = Vec_FltAlloc(16);
+    pEnt->pPreHashCutID = Vec_IntAlloc(16);
     return pEnt;
 }
 

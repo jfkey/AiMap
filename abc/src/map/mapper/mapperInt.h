@@ -248,6 +248,7 @@ struct Map_NodeStruct_t_
     Vec_Ptr_t *         pPreSupres;
     Vec_Int_t *         pPrePhases;
     Vec_Flt_t *         pPreDelys;
+    Vec_Int_t *         pPreHashCutID;
 }; 
 
 // the match of the cut
@@ -423,7 +424,7 @@ extern void              Map_SuperTableSortSupergates( Map_HashTable_t * p, int 
 extern void              Map_SuperTableSortSupergatesByDelay( Map_HashTable_t * p, int nSupersMax );
 /*=== mapperTime.c =============================================================*/
 extern float             Map_TimeCutComputeArrival( Map_Node_t * pNode, Map_Cut_t * pCut, int fPhase, float tWorstCaseLimit, int mappingMode, Map_Train_t *para);
-extern float             Map_TimeCutComputeArrivalPre( Map_Node_t * pNode, Map_Cut_t * pCut, int fPhase, float tWorstCaseLimit );
+extern float             Map_TimeCutComputeArrivalPre( Map_Node_t * pNode, Map_Cut_t * pCut, int fPhase, float tWorstCaseLimit, int hashID);
 extern float             Map_TimeComputeArrivalMax( Map_Man_t * p );
 extern void              Map_TimeComputeRequiredGlobal( Map_Man_t * p );
 

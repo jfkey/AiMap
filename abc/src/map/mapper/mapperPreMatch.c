@@ -162,7 +162,7 @@ int Map_MatchComparePre( Map_Man_t * pMan, Map_Match_t * pM1, Map_Match_t * pM2,
   SeeAlso     []
 
 ***********************************************************************/
-int Map_MatchNodeCutPre( Map_Man_t * p, Map_Node_t * pNode, Map_Cut_t * pCut, int fPhase, float fWorstLimit )
+int Map_MatchNodeCutPre( Map_Man_t * p, Map_Node_t * pNode, Map_Cut_t * pCut, int fPhase, float fWorstLimit, int hashID)
 {
     Map_Match_t MatchBest, * pMatch = pCut->M + fPhase;
     Map_Super_t * pSuper;
@@ -190,7 +190,7 @@ int Map_MatchNodeCutPre( Map_Man_t * p, Map_Node_t * pNode, Map_Cut_t * pCut, in
             if ( p->fMappingMode == 0 )
             {
                 // get the arrival time  核心是更新p pCut-> M + fPhase ->tArrive
-                Map_TimeCutComputeArrivalPre( pNode, pCut, fPhase, fWorstLimit );
+                Map_TimeCutComputeArrivalPre( pNode, pCut, fPhase, fWorstLimit, hashID );
                 // skip the cut if the arrival times exceed the required times
                 if ( pMatch->tArrive.EstWorst > fWorstLimit + p->fEpsilon )
                     continue;
@@ -210,7 +210,7 @@ int Map_MatchNodeCutPre( Map_Man_t * p, Map_Node_t * pNode, Map_Cut_t * pCut, in
                 if ( pMatch->AreaFlow > MatchBest.AreaFlow + p->fEpsilon )
                     continue;
                 // get the arrival time
-                Map_TimeCutComputeArrivalPre( pNode, pCut, fPhase, fWorstLimit );
+                Map_TimeCutComputeArrivalPre( pNode, pCut, fPhase, fWorstLimit, hashID);
                 // skip the cut if the arrival times exceed the required times
                 if ( pMatch->tArrive.EstWorst > fWorstLimit + p->fEpsilon )
                     continue;
@@ -233,7 +233,7 @@ int Map_MatchNodeCutPre( Map_Man_t * p, Map_Node_t * pNode, Map_Cut_t * pCut, in
     // recompute the arrival time and area (area flow) of this cut
     if ( pMatch->pSuperBest )
     {
-        Map_TimeCutComputeArrivalPre( pNode, pCut, fPhase, MAP_FLOAT_LARGE );
+        Map_TimeCutComputeArrivalPre( pNode, pCut, fPhase, MAP_FLOAT_LARGE, hashID);
         if ( p->fMappingMode == 2 || p->fMappingMode == 3 )
             pMatch->AreaFlow = Map_CutGetAreaDerefed( pCut, fPhase );
         else if ( p->fMappingMode == 4 )
@@ -257,6 +257,8 @@ int Map_MatchNodeCutPre( Map_Man_t * p, Map_Node_t * pNode, Map_Cut_t * pCut, in
 ***********************************************************************/
 int Map_MatchNodePhasePre( Map_Man_t * p, Map_Node_t * pNode, int fPhase )
 {
+    int factorArr[5] = {11, 7, 5, 3, 1};
+    int hashID = 0;
     Map_Match_t MatchBest, * pMatch;
     Map_Cut_t * pCut, * pCutBest;
     float Area1 = 0.0; // Suppress "might be used uninitialized
@@ -272,8 +274,11 @@ int Map_MatchNodePhasePre( Map_Man_t * p, Map_Node_t * pNode, int fPhase )
     // as a result of remapping fanins in the topological order
     if ( p->fMappingMode != 0 )
     {
-
-        Map_TimeCutComputeArrivalPre( pNode, pCutBest, fPhase, MAP_FLOAT_LARGE );
+        hashID = 0;
+        for ( int k = 0; k < pCutBest->nLeaves; k++ ){
+            hashID += pCutBest->ppLeaves[k]->Num * factorArr[k];
+        }
+        Map_TimeCutComputeArrivalPre( pNode, pCutBest, fPhase, MAP_FLOAT_LARGE, hashID);
         // make sure that the required times are met
 //        assert( pCutBest->M[fPhase].tArrive.Rise < pNode->tRequired[fPhase].Rise + p->fEpsilon );
 //        assert( pCutBest->M[fPhase].tArrive.Fall < pNode->tRequired[fPhase].Fall + p->fEpsilon );
@@ -311,11 +316,12 @@ int Map_MatchNodePhasePre( Map_Man_t * p, Map_Node_t * pNode, int fPhase )
     fWorstLimit = pNode->tRequired[fPhase].EstWorst;
     for ( pCut = pNode->pCuts->pNext; pCut; pCut = pCut->pNext )
     {
-//        printf("\t");
-//        for (int k = 0; k < pCut->nLeaves; k++){
-//            printf("%d,", pCut->ppLeaves[k]->Num);
-//        }
-//        printf("\n");
+
+        // compute the hashID of the cut
+        hashID = 0;
+        for ( int k = 0; k < pCut->nLeaves; k++ ){
+                hashID += pCut->ppLeaves[k]->Num * factorArr[k];
+        }
 
         // limit gate sizes based on fanout count
         if ( p->fSkipFanout && ((pNode->nRefs > 3 && pCut->nLeaves > 2) || (pNode->nRefs > 1 && pCut->nLeaves > 3)) )
@@ -325,7 +331,7 @@ int Map_MatchNodePhasePre( Map_Man_t * p, Map_Node_t * pNode, int fPhase )
             continue;
 
         // find the matches for the cut
-        Map_MatchNodeCutPre( p, pNode, pCut, fPhase, fWorstLimit );
+        Map_MatchNodeCutPre( p, pNode, pCut, fPhase, fWorstLimit, hashID );
         if ( pMatch->pSuperBest == NULL || pMatch->tArrive.EstWorst > fWorstLimit + p->fEpsilon )
             continue;
 

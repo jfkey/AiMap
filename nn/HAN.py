@@ -74,7 +74,7 @@ class FusionModel(nn.Module):
     # batch x (28+k) MLP
     def forward(self, node_features, cut_features, cell_features):
 
-        if len(node_features) == 2:
+        if len(node_features.shape) == 2:
             node_features = node_features.unsqueeze(1)
             cut_features = cut_features.unsqueeze(1)
             cell_features = cell_features.unsqueeze(1)
@@ -92,7 +92,7 @@ class FusionModel(nn.Module):
         return pre_delay
 
     # def forward(self, node_features, cut_features, cell_features):
-    #     if len(node_features) == 2:
+    #     if len(node_features.shape) == 2:
     #         node_features = node_features.unsqueeze(1)
     #         cut_features = cut_features.unsqueeze(1)
     #         cell_features = cell_features.unsqueeze(1)
@@ -158,7 +158,7 @@ class AttentionModule(torch.nn.Module):
         torch.nn.init.xavier_uniform_(self.weight_matrix)
 
     def forward(self, embedding):
-        if len(embedding) == 2:
+        if len(embedding.shape) == 2:
             embedding = embedding.unsqueeze(0)
         batch_size = embedding.size(0)
         global_context = torch.mean(torch.matmul(embedding, self.weight_matrix.unsqueeze(0).repeat(batch_size,1,1)), dim=1, keepdim=True)

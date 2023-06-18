@@ -208,11 +208,11 @@ float Map_TimeCutComputeArrival( Map_Node_t * pNode, Map_Cut_t * pCut, int fPhas
 }
 
 
-float Map_NodeReadPreDelay(Map_Node_t * p, char* cellName, int phase){
+float Map_NodeReadPreDelay(Map_Node_t * p, char* cellName, int phase, int hashID){
     int idx;
     char* pEntry;
     Vec_PtrForEachEntry(char*, p->pPreSupres, pEntry, idx)
-        if (strcmp(cellName, pEntry) == 0  && Vec_IntEntry(p->pPrePhases, idx) == phase)
+        if (strcmp(cellName, pEntry) == 0  && Vec_IntEntry(p->pPrePhases, idx) == phase && Vec_IntEntry(p->pPreHashCutID, idx)== hashID)
             break;
     if (idx >= p->pPreSupres->nSize) {
         printf("Error: can not find the delay of supergate %s of phase %d\n", cellName, phase);
@@ -239,7 +239,7 @@ float Map_NodeReadPreDelay(Map_Node_t * p, char* cellName, int phase){
   2. 在 Map_NodeTransferArrivalTimesPre 中根据Super和Cut之间的Phase去计算每个节点的delay
 
 ***********************************************************************/
-float Map_TimeCutComputeArrivalPre( Map_Node_t * pNode, Map_Cut_t * pCut, int fPhase, float tWorstLimit )
+float Map_TimeCutComputeArrivalPre( Map_Node_t * pNode, Map_Cut_t * pCut, int fPhase, float tWorstLimit, int hashID )
 {
 
     //
@@ -247,7 +247,7 @@ float Map_TimeCutComputeArrivalPre( Map_Node_t * pNode, Map_Cut_t * pCut, int fP
     Map_Super_t * pSuper = pM->pSuperBest;
     unsigned uPhaseTot = pM->uPhaseBest;
     Map_Time_t * ptArrRes = &pM->tArrive;
-    float learnDelay =  Map_NodeReadPreDelay (pNode, Mio_GateReadName(pSuper->pRoot), fPhase);
+    float learnDelay =  Map_NodeReadPreDelay (pNode, Mio_GateReadName(pSuper->pRoot), fPhase, hashID);
 
     Map_Time_t * ptArrIn;
     Map_Time_t * ptArrInWorst;
@@ -350,11 +350,9 @@ float Map_TimeCutComputeArrivalPre( Map_Node_t * pNode, Map_Cut_t * pCut, int fP
     ptArrRes->Worst = MAP_MAX(ptArrRes->Rise, ptArrRes->Fall);
     // update the estimated delay
     float preFactor = 0.5;
-    ptArrRes->EstWorst = ptArrInWorst->EstWorst + preFactor * Map_NodeReadPreDelay(pNode, Mio_GateReadName(pSuper->pRoot), fPhase ) + (1-preFactor) * ptArrRes->Worst;
+    ptArrRes->EstWorst = ptArrInWorst->EstWorst + preFactor * Map_NodeReadPreDelay(pNode, Mio_GateReadName(pSuper->pRoot), fPhase, hashID) + (1-preFactor) * ptArrRes->Worst;
 //    ptArrRes->Worst = MAP_MAX(ptArrRes->Rise, ptArrRes->Fall);
-
 //    printf("node id: %d, super name: %s, phase: %d, pinDelay: %.3f, superWorst: %.3f, map cut delay: %f \n", pNode->Num, Mio_GateReadName(pSuper->pRoot), fPhase, pinDelay, pSuper->tDelayMax.Fall, ptArrRes->EstWorst);
-
     return ptArrRes->EstWorst;
 }
 
