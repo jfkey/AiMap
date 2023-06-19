@@ -139,8 +139,10 @@ if __name__ == '__main__':
     # "mul64-booth", "aes", "C7552", "max", "mul32-booth", "sqrt", "multiplier", "64b_mult", "bar",
     # "s5378_comb", "C5315", "log2", "square", "div", "hyp"]
 
-    circuits = ["sin", "mul64-booth", "aes", "C7552", "max", "mul32-booth", "sqrt", "multiplier", "64b_mult", "bar",
-    "s5378_comb", "C5315", "log2", "square", "div", "hyp"]
+    circuits = [ "square", "div", "hyp"]
+
+    # circuits = ["cavlc", "ctrl", "dec", "i2c", "int2float", "priority", "router"]
+
 
     # circuits = ['i2c']
     for circuit_name in circuits:

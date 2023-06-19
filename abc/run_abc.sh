@@ -5,7 +5,8 @@
 # eg: bash run_abc.sh ../bin/abc ../benchmark/EPFL 10m ../asap7.lib
 #bash run_abc.sh  cmake-build-debug/abc /home/liujunfeng/benchmarks/random-arith 10m /home/liujunfeng/SLAP/ML-Mapper/abc/asap7_clean.lib
 # bash run_abc.sh  cmake-build-debug/abc /home/liujunfeng/benchmarks/random_control 10m /home/liujunfeng/SLAP/ML-Mapper/abc/asap7_clean.lib
-#  bash run_abc.sh  cmake-build-debug/abc /home/liujunfeng/benchmarks/comb-exp 10m /home/liujunfeng/SLAP/ML-Mapper/abc/asap7_clean.lib
+#bash run_abc.sh  cmake-build-debug/abc /home/liujunfeng/benchmarks/comb-exp 10m /home/liujunfeng/SLAP/ML-Mapper/abc/asap7_clean.lib
+#bash run_abc.sh  cmake-build-debug/abc /home/liujunfeng/benchmarks/control-exp 10m /home/liujunfeng/SLAP/ML-Mapper/abc/asap7_clean.lib
 
 binary=$(echo "$1" | awk -F "/" '{print $NF}')
 timestamp=$(date +%Y%m%d%H%M%S)

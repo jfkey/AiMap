@@ -123,10 +123,12 @@ ABC_PRT( "Time", p->timeMatch );
 
         p->fMappingMode = 1;
         if ( strcmp(preDelayStr, "")){
-            // compute the required times
-            Map_TimeComputeRequiredGlobalPre( p );
-            // recover area flow
-            if (!Map_MappingMatchesPre( p )) return 0;
+//            // compute the required times
+//            Map_TimeComputeRequiredGlobalPre( p );
+//            // recover area flow
+//            if (!Map_MappingMatchesPre( p )) return 0;
+            Map_TimeComputeRequiredGlobal( p );
+            if (!Map_MappingMatches( p, para) ) return 0;
         } else{
             // compute the required times
             Map_TimeComputeRequiredGlobal( p );
@@ -156,10 +158,10 @@ ABC_PRT( "Time", Abc_Clock() - clk );
     {
         p->fMappingMode = 2;
         if ( strcmp(preDelayStr, "")){
-            // compute the required times
-            Map_TimeComputeRequiredGlobalPre( p );
-            // recover area flow
-            if (!Map_MappingMatchesPre( p )) return 0;
+//            Map_TimeComputeRequiredGlobalPre( p );
+//            if (!Map_MappingMatchesPre( p )) return 0;
+            Map_TimeComputeRequiredGlobal( p );
+            if (!Map_MappingMatches( p, para) ) return 0;
         } else{
             // compute the required times
             Map_TimeComputeRequiredGlobal( p );
@@ -189,10 +191,10 @@ ABC_PRT( "Time", Abc_Clock() - clk );
     {
         p->fMappingMode = 3;
         if ( strcmp(preDelayStr, "")){
-            // compute the required times
-            Map_TimeComputeRequiredGlobalPre( p );
-            // recover area flow
-            if (!Map_MappingMatchesPre( p )) return 0;
+//            Map_TimeComputeRequiredGlobalPre( p );
+//            if (!Map_MappingMatchesPre( p )) return 0;
+            Map_TimeComputeRequiredGlobal( p );
+            if (!Map_MappingMatches( p, para) ) return 0;
         } else{
             // compute the required times
             Map_TimeComputeRequiredGlobal( p );
@@ -222,10 +224,10 @@ ABC_PRT( "Time", Abc_Clock() - clk );
     {
         p->fMappingMode = 4;
         if ( strcmp(preDelayStr, "")){
-            // compute the required times
-            Map_TimeComputeRequiredGlobalPre( p );
-            // recover area flow
-            if (!Map_MappingMatchesPre( p )) return 0;
+//            Map_TimeComputeRequiredGlobalPre( p );
+//            if (!Map_MappingMatchesPre( p )) return 0;
+            Map_TimeComputeRequiredGlobal( p );
+            if (!Map_MappingMatches( p, para) ) return 0;
         } else{
             // compute the required times
             Map_TimeComputeRequiredGlobal( p );
@@ -248,10 +250,10 @@ ABC_PRT( "Time", Abc_Clock() - clk );
 
         p->fMappingMode = 4;
         if ( strcmp(preDelayStr, "")){
-            // compute the required times
-            Map_TimeComputeRequiredGlobalPre( p );
-            // recover area flow
-            if (!Map_MappingMatchesPre( p )) return 0;
+//            Map_TimeComputeRequiredGlobalPre( p );
+//            if (!Map_MappingMatchesPre( p )) return 0;
+            Map_TimeComputeRequiredGlobal( p );
+            if (!Map_MappingMatches( p, para) ) return 0;
         } else{
             // compute the required times
             Map_TimeComputeRequiredGlobal( p );
@@ -263,10 +265,10 @@ ABC_PRT( "Time", Abc_Clock() - clk );
         p->AreaFinal = Map_MappingGetArea( p );
 if ( p->fVerbose )
 {
-printf( "Switching: %s = %8.2f  Flow = %11.1f  Area = %11.1f  %4.1f %%   ", 
-                    fShowSwitching? "Switch" : "Delay", 
-                    fShowSwitching? Map_MappingGetSwitching(p) : p->fRequiredGlo, 
-                    0.0, p->AreaFinal, 
+printf( "Switching: %s = %8.2f  Flow = %11.1f  Area = %11.1f  %4.1f %%   ",
+                    fShowSwitching? "Switch" : "Delay",
+                    fShowSwitching? Map_MappingGetSwitching(p) : p->fRequiredGlo,
+                    0.0, p->AreaFinal,
                     100.0*(p->AreaBase-p->AreaFinal)/p->AreaBase );
 ABC_PRT( "Time", Abc_Clock() - clk );
 }

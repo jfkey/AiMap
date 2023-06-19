@@ -279,22 +279,22 @@ float Map_TimeCutComputeArrivalPre( Map_Node_t * pNode, Map_Cut_t * pCut, int fP
         if(pSuper->tDelaysF[i].Rise > 0)  pinDelay = Abc_MaxFloat(pinDelay, pSuper->tDelaysF[i].Rise);
         if(pSuper->tDelaysF[i].Fall > 0)  pinDelay = Abc_MaxFloat(pinDelay, pSuper->tDelaysF[i].Fall);
 
-        if (fPinPhase == 0 && firstNeg == 0) {
-            pretDelay = ptArrIn->EstWorst + learnDelay + tExtra;
-            if (firstPos == 1 && ptArrRes->EstWorst > pretDelay  )
-                continue;
-            else
-                ptArrRes->EstWorst = pretDelay;
-            firstNeg = 1;
-        }
-        if (fPinPhase == 1 && firstPos == 0) {
-            pretDelay = ptArrIn->EstWorst + learnDelay + tExtra;
-            if (firstNeg == 1 && ptArrRes->EstWorst > pretDelay  )
-                continue;
-            else
-                ptArrRes->EstWorst = pretDelay;
-            firstPos = 1;
-        }
+//        if (fPinPhase == 0 && firstNeg == 0) {
+//            pretDelay = ptArrIn->EstWorst + learnDelay + tExtra;
+//            if (firstPos == 1 && ptArrRes->EstWorst > pretDelay  )
+//                continue;
+//            else
+//                ptArrRes->EstWorst = pretDelay;
+//            firstNeg = 1;
+//        }
+//        if (fPinPhase == 1 && firstPos == 0) {
+//            pretDelay = ptArrIn->EstWorst + learnDelay + tExtra;
+//            if (firstNeg == 1 && ptArrRes->EstWorst > pretDelay  )
+//                continue;
+//            else
+//                ptArrRes->EstWorst = pretDelay;
+//            firstPos = 1;
+//        }
 
         // get the rise of the output due to rise of the inputs
         if ( pSuper->tDelaysR[i].Rise > 0 )
