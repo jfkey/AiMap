@@ -141,7 +141,7 @@ Abc_Ntk_t * Abc_genTrain(Abc_Frame_t * pAbc, Abc_Ntk_t * pNtk,  char* nodeFileSt
                 float curArea = Abc_NtkGetMappedArea(Abc_FrameReadNtk(pAbc));
                 float gainD = (dfDelay - curDelay) / dfDelay;
                 float gainA = (dfArea - curArea) / dfArea;
-                gainA = 0;
+//                gainA = 0;
                 if (gainD + gainA > 0.01 && gainD + gainA > bestgain1) {
                     curBestDelay = curDelay;
                     curBestArea = curArea;
@@ -191,7 +191,7 @@ Abc_Ntk_t * Abc_genTrain(Abc_Frame_t * pAbc, Abc_Ntk_t * pNtk,  char* nodeFileSt
                     float curArea = Abc_NtkGetMappedArea(Abc_FrameReadNtk(pAbc));
                     float gainD = (dfDelay - curDelay) / dfDelay;
                     float gainA = (dfArea - curArea) / dfArea;
-                    gainA = 0;
+//                    gainA = 0;
                     if (gainD + gainA > 0.01 && gainD + gainA > bestgain1) {
                         bestgain2 = gainA + gainD;
                         besti = i; bestj = j; bestk = k; bestl = l;
@@ -232,7 +232,7 @@ Abc_Ntk_t * Abc_genTrain(Abc_Frame_t * pAbc, Abc_Ntk_t * pNtk,  char* nodeFileSt
             float curArea = Abc_NtkGetMappedArea(Abc_FrameReadNtk(pAbc));
             float gainD = (dfDelay - curDelay) / dfDelay;
             float gainA = (dfArea - curArea) / dfArea;
-            gainA = 0;
+//            gainA = 0;
             if (gainD + gainA > 0.01 && gainD + gainA > bestgain2 && gainD + gainA > bestgain1 ) {
                 bestgain3 = gainA + gainD;
                 besti = i; bestj = j+1;

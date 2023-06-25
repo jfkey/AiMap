@@ -144,7 +144,7 @@ class FusionModel(nn.Module):
 #         representation = torch.bmm(embedding.permute(0, 2, 1), sigmoid_scores)
 #
 #         return representation.squeeze(2)
-class AttentionModule(torch.nn.Module): 
+class AttentionModule(torch.nn.Module):
     def __init__(self, node_feature_dim):
         super(AttentionModule, self).__init__()
         self.node_feature_dim = node_feature_dim
@@ -186,28 +186,4 @@ if __name__ == '__main__':
     fm = FusionModel(node_feature_dim, cut_feature_dim, cell_feature_dim, fusion_dim, postmlp_dim, pdrop)
     a = fm(nodeF, cutF, cellF)
     print(a)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 

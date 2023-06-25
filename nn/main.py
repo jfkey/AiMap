@@ -6,6 +6,7 @@ from torch.utils.data import random_split
 import matplotlib.pyplot as plt
 import torch.nn as nn
 import glob
+import  numpy as np
 import pickle
 
 
@@ -25,10 +26,15 @@ def inference_circuit(model, inf_loader, inf_dataset, circuit_name, epoch):
 
 
 if __name__ == '__main__':
-    node_files = sorted(glob.glob('../data/train_delay/*_node_emb.csv'))
-    cut_files = sorted(glob.glob('../data/train_delay/*_cut_emb.csv'))
-    cell_files = sorted(glob.glob('../data/train_delay/*_cell_emb.csv'))
-    labels_files = sorted(glob.glob('../data/train_delay/*_lables.csv'))
+    # node_files = sorted(glob.glob('../data/train_delay/*_node_emb.csv'))
+    # cut_files = sorted(glob.glob('../data/train_delay/*_cut_emb.csv'))
+    # cell_files = sorted(glob.glob('../data/train_delay/*_cell_emb.csv'))
+    # labels_files = sorted(glob.glob('../data/train_delay/*_lables.csv'))
+
+    node_files = sorted(glob.glob('../data/train_delay/i2c_node_emb.csv'))
+    cut_files = sorted(glob.glob('../data/train_delay/i2c_cut_emb.csv'))
+    cell_files = sorted(glob.glob('../data/train_delay/i2c_cell_emb.csv'))
+    labels_files = sorted(glob.glob('../data/train_delay/i2c_lables.csv'))
 
     MAXLEVEL, MAXFANOUT, MAXROOTFANOUT = 9000, 1000, 1000
     LEVELDIM, FANOUTDIM, ROOTFANOUTDIM = 4, 4, 4
@@ -74,63 +80,133 @@ if __name__ == '__main__':
     criterion = torch.nn.MSELoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=0.001, weight_decay=0.005)
 
-    ''' 
+
     # Training loop
     num_epochs = 10
     best_loss = float('inf')
     losses = []  # to keep track of losses
+    #
+    # for epoch in range(num_epochs):
+    #     totalloss = 0.0
+    #     i = 0
+    #     for i, (node_features, cut_features, cell_features, labels) in enumerate(train_loader):
+    #         # Forward pass
+    #         outputs = model(node_features, cut_features, cell_features)
+    #         loss = criterion(outputs, labels)
+    #
+    #         # Backward pass
+    #         optimizer.zero_grad()
+    #         loss.backward()
+    #         optimizer.step()
+    #         totalloss += loss.item()
+    #
+    #     print(f"Epoch [{epoch + 1}/{num_epochs}], Loss: {totalloss/i:.4f}")
+    #     losses.append(loss.item())  # add the loss of each epoch to the list
+    #
+    #     # save the best model .
+    #     if (epoch + 1) % 1 == 0:
+    #         model.eval()
+    #         with torch.no_grad():
+    #             test_losses = []
+    #             for node_features, cut_features, cell_features, labels in test_loader:
+    #                 outputs = model(node_features, cut_features, cell_features)
+    #                 loss = criterion(outputs, labels)
+    #                 test_losses.append(loss.item())
+    #             avg_test_loss = sum(test_losses) / len(test_losses)
+    #             print(f"Epoch [{epoch + 1}/{num_epochs}], Test Loss: {avg_test_loss}")
+    #             # Save the model if it has the best loss so far
+    #             # if avg_test_loss < best_loss:
+    #             best_loss = avg_test_loss
+    #             torch.save(model.state_dict(), '../data/best_model_{}.pt'.format(epoch))
+    #             embDict = {}
+    #             embDict['levelEmb'] = levelEmb
+    #             embDict['fanoutEmb'] = fanoutEmb
+    #             embDict['rootFanoutEmb'] = rootFanoutEmb
+    #             with open("../data/emb_{}.pickle".format(epoch), "wb") as embFile:
+    #                 pickle.dump(embDict, embFile)
 
-    for epoch in range(num_epochs):
-        totalloss = 0.0
-        i = 0
-        for i, (node_features, cut_features, cell_features, labels) in enumerate(train_loader):
-            # Forward pass
+    original_loss = 0
+    epoch = 2
+    with open("../data/emb_{}.pickle".format(epoch), "rb") as embFile:
+        embDict = pickle.load(embFile)
+    model.load_state_dict(torch.load('../data/best_model_{}.pt'.format(epoch)))
+    model.eval()
+    with torch.no_grad():
+        test_losses = []
+        for node_features, cut_features, cell_features, labels in test_loader:
             outputs = model(node_features, cut_features, cell_features)
             loss = criterion(outputs, labels)
+            test_losses.append(loss.item())
+            original_loss = loss.item()
+        avg_test_loss = sum(test_losses) / len(test_losses)
+        print(f"Epoch [{epoch + 1}/{num_epochs}], Test Loss: {avg_test_loss}")
 
-            # Backward pass
-            optimizer.zero_grad()
-            loss.backward()
-            optimizer.step()
-            totalloss += loss.item()
 
-        print(f"Epoch [{epoch + 1}/{num_epochs}], Loss: {totalloss/i:.4f}")
-        losses.append(loss.item())  # add the loss of each epoch to the list
+    num_features = 10
+    feature_importance = np.zeros(num_features)
+    # Permute each feature and calculate the drop in loss
+    for feature_idx in range(num_features):
+        permuted_loader = []
+        permuted_loss = 0
+        for node_features, cut_features, cell_features, labels in test_loader:
 
-        # save the best model .
-        if (epoch + 1) % 1 == 0:
-            model.eval()
+            # Create a copy of the original batch data 32x6x28
+            permuted_batch_data = node_features.clone()
+
+            indices = torch.randperm( permuted_batch_data.size(1) )
+
+            # shuffled_tensor = tensor[:, :, indices]
+            tmp = permuted_batch_data[:, indices, feature_idx]
+
+            node_features[:, indices, feature_idx] = tmp
+            permuted_batch_data2 = cut_features.clone()
+            permuted_batch_data3 = cell_features.clone()
+            labels3 = labels.clone()
+            # permuted_loader.append([permuted_batch_data, permuted_batch_data2, permuted_batch_data3, labels3])
+
+
+
+            # Compute the loss with the permuted feature
             with torch.no_grad():
-                test_losses = []
-                for node_features, cut_features, cell_features, labels in test_loader:
-                    outputs = model(node_features, cut_features, cell_features)
-                    loss = criterion(outputs, labels)
-                    test_losses.append(loss.item())
-                avg_test_loss = sum(test_losses) / len(test_losses)
-                print(f"Epoch [{epoch + 1}/{num_epochs}], Test Loss: {avg_test_loss}")
-                # Save the model if it has the best loss so far
-                # if avg_test_loss < best_loss:
-                best_loss = avg_test_loss
-                torch.save(model.state_dict(), '../data/best_model_{}.pt'.format(epoch))
-                embDict = {}
-                embDict['levelEmb'] = levelEmb
-                embDict['fanoutEmb'] = fanoutEmb
-                embDict['rootFanoutEmb'] = rootFanoutEmb
-                with open("../data/emb_{}.pickle".format(epoch), "wb") as embFile:
-                    pickle.dump(embDict, embFile)
+
+                # for node_features, cut_features, cell_features, labels in permuted_loader:
+                outputs = model(node_features, cut_features, cell_features)
+                loss = criterion(outputs, labels)
+
+                permuted_loss += loss.item()
 
 
-    # After training, plot the loss over epochs
-    plt.figure(figsize=(10, 5))
-    plt.plot(losses)
-    plt.title("Training Loss over Epochs")
-    plt.xlabel("Epoch")
-    plt.ylabel("Loss")
-    plt.grid(True)
-    plt.savefig('loss_plot.png')
-    plt.show()
-'''
 
+        feature_importance[feature_idx] = permuted_loss
+
+    print(feature_importance)
+    # Normalize feature importance values
+    feature_importance /= np.sum(feature_importance)
+
+
+    # Print the feature importance values
+    for feature_idx, importance in enumerate(feature_importance):
+        print(f"Feature {feature_idx + 1}: Importance = {importance}")
+
+
+
+
+
+
+
+
+    # # After training, plot the loss over epochs
+    # plt.figure(figsize=(10, 5))
+    # plt.plot(losses)
+    # plt.title("Training Loss over Epochs")
+    # plt.xlabel("Epoch")
+    # plt.ylabel("Loss")
+    # plt.grid(True)
+    # plt.savefig('loss_plot.png')
+    # plt.show()
+
+
+    '''
     # circuits = ['adder', 'max', 'sin', 'bar', 'router', 'i2c', 'priority']
     # circuits = ["s444_comb", "C6288", "s526_comb", "rc256b", "log2", "square", "s9234_1_comb", "adder", "rc64b", "C880", "sin",
     # "div", "hyp", "mul64-booth", "aes", "C7552", "max", "mul32-booth", "sqrt", "multiplier", "64b_mult", "bar",
@@ -158,6 +234,8 @@ if __name__ == '__main__':
         inf_dataset = CutInfData(node_files, cut_files, cell_files, embDict['levelEmb'], embDict['fanoutEmb'], embDict['rootFanoutEmb'], dataset.min_arr, dataset.max_arr)
         inf_loader = DataLoader(inf_dataset, batch_size=batch_size, shuffle=False)
         inference_circuit(model, inf_loader, inf_dataset, circuit_name, epoch)
+'''
+
 
     '''
     Epoch [1/10], Loss: 912.8060
